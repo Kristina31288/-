@@ -79,6 +79,7 @@
   .type-mso{background:rgba(124,58,237,.10);color:#6d28d9;}
   .type-robot{background:rgba(22,163,74,.10);color:#15803d;}
   .type-hand{background:rgba(217,119,6,.12);color:#b45309;}
+  .type-adm{background:rgba(100,116,139,.12);color:#475569;}
   label{font-size:12px;font-weight:500;color:var(--muted);}
   input,select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;outline:none;font-family:'Inter',sans-serif;transition:border-color .2s;}
   input:focus,select:focus{border-color:var(--accent);}
@@ -367,6 +368,10 @@ const OBJECTS = [
   {id:'pit_conv',name:'Питер конвейер Ефимова',type:'Конвейер',city:'СПб'},
   {id:'vp_mso',name:'МСО Верхняя Пышма',type:'МСО',city:'ВП'},
   {id:'nt_mso',name:'МСО Нижний Тагил',type:'МСО',city:'НТ'},
+  // Административный персонал — % от общей выручки
+  {id:'adm_mgr',name:'Управляющие',type:'Адм',city:'Екб',totalRevPct:true},
+  {id:'adm_tech',name:'Техники (все)',type:'Адм',city:'Екб',totalRevPct:true},
+  {id:'adm_office',name:'Офис',type:'Адм',city:'Екб',totalRevPct:true},
 ];
 
 const CITY_NAMES = {Екб:'Екатеринбург',Тюмень:'Тюмень',Чел:'Челябинск',СПб:'Санкт-Петербург',ВП:'Верхняя Пышма',НТ:'Нижний Тагил'};
