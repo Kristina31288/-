@@ -429,25 +429,41 @@ async function loadMonthData(y,m){
 }
 
 async function saveMonthData(y,m,updates){
-  // updates = [{object_id, revenue, fot}]
   const key=getMonthKey(y,m);
   setSyncStatus('syncing','Сохранение…');
   try {
-    const payload=updates.map(u=>({month_key:key,object_id:u.object_id,revenue:u.revenue,fot:u.fot,updated_at:new Date().toISOString()}));
+    // Step 1: delete existing records for this month
+    const delRes=await fetch(API+'?month_key=eq.'+key,{
+      method:'DELETE',
+      headers:{
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer '+SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
+    // Step 2: insert fresh records (only non-null values)
+    const payload=updates
+      .filter(u=>u.revenue!=null||u.fot!=null)
+      .map(u=>({month_key:key,object_id:u.object_id,revenue:u.revenue,fot:u.fot,updated_at:new Date().toISOString()}));
+    if(payload.length===0){ setSyncStatus('ok','Сохранено ✓'); return true; }
     const res=await fetch(API,{
       method:'POST',
-      headers:{...headers,'Prefer':'resolution=merge-duplicates'},
+      headers:{
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer '+SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
       body:JSON.stringify(payload)
     });
     if(!res.ok){ const t=await res.text(); throw new Error(t); }
-    // update cache
     if(!cache[key]){ cache[key]={}; OBJECTS.forEach(o=>{ cache[key][o.id]={rev:null,fot:null}; }); }
     updates.forEach(u=>{ cache[key][u.object_id]={rev:u.revenue,fot:u.fot}; });
     setSyncStatus('ok','Сохранено ✓');
     return true;
   } catch(e){
     setSyncStatus('error','Ошибка сохранения');
-    toast('Ошибка сохранения: '+e.message,'error');
+    toast('Ошибка: '+e.message,'error');
     return false;
   }
 }
