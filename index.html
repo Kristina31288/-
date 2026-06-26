@@ -121,6 +121,216 @@
   #toast.success{background:var(--success);}
   #toast.error{background:var(--danger);}
   @media(max-width:680px){.main{padding:12px;}.app-header{padding:0 12px;}}
+
+
+
+
+  /* ════════════════════════════════
+     MOBILE — full redesign
+     max-width: 768px
+  ════════════════════════════════ */
+  @media (max-width: 768px) {
+
+    /* HEADER */
+    .app-header {
+      height: auto;
+      padding: 10px 14px;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .logo { flex: 1; min-width: 0; }
+    .logo img { height: 30px; width: 30px; }
+    .logo-text { font-size: 14px; }
+    .logo-sub { display: none; }
+    .header-right {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%;
+      justify-content: space-between;
+    }
+    .sync-indicator { font-size: 11px; flex-shrink: 0; }
+    #syncLabel { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .role-label { display: none; }
+    .role-select { font-size: 12px; padding: 5px 8px; flex: 1; max-width: 200px; }
+
+    /* TABS */
+    .nav-tabs {
+      padding: 0 10px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .tab-btn { padding: 10px 12px; font-size: 12px; }
+
+    /* MAIN */
+    .main { padding: 12px; }
+
+    /* KPI GRID — 2 columns */
+    .kpi-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .card { padding: 12px; }
+    .card-title { font-size: 9px; letter-spacing: .5px; margin-bottom: 4px; }
+    .card-value { font-size: 17px; }
+    .card-sub { font-size: 10px; }
+
+    /* CHART */
+    .chart-container { padding: 14px; margin-bottom: 14px; }
+    .chart-inner { height: 90px; }
+    .c-lbl { font-size: 8px; }
+    .legend { gap: 10px; }
+    .leg-item { font-size: 10px; }
+
+    /* SECTION HEADER */
+    .section-hdr { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+    .section-title { font-size: 14px; }
+    .month-nav { width: 100%; justify-content: space-between; }
+    .month-label { font-size: 14px; min-width: 90px; }
+
+    /* FILTER BAR */
+    .filter-bar { flex-direction: column; gap: 8px; }
+    .filter-bar input, .filter-bar select { width: 100%; min-width: 0; font-size: 13px; padding: 9px 12px; }
+
+    /* GLASS CARD */
+    .glass { padding: 14px !important; }
+
+    /* ── DASHBOARD TABLE → CARD LIST ── */
+    #dashTable { display: block; }
+    #dashTable thead { display: none; }
+    #dashTable tbody { display: block; }
+    #dashTable tbody tr.city-row {
+      display: block;
+      padding: 8px 0 4px 0;
+    }
+    #dashTable tbody tr.city-row td {
+      display: block;
+      border: none;
+      padding: 0;
+    }
+    #dashTable tbody tr:not(.city-row) {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+      box-shadow: var(--shadow);
+    }
+    #dashTable tbody tr:not(.city-row) td {
+      display: block;
+      border: none;
+      padding: 2px 0;
+    }
+    /* Object name */
+    #dashTable tbody tr:not(.city-row) td:nth-child(1) {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    /* Type badge — hide */
+    #dashTable tbody tr:not(.city-row) td:nth-child(2) { display: none; }
+    /* Revenue */
+    #dashTable tbody tr:not(.city-row) td:nth-child(3)::before {
+      content: "Выручка: ";
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+    }
+    /* FOT */
+    #dashTable tbody tr:not(.city-row) td:nth-child(4)::before {
+      content: "ФОТ: ";
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+    }
+    /* Percent bar */
+    #dashTable tbody tr:not(.city-row) td:nth-child(5) { margin-top: 4px; }
+    .pct-bar-wrap { min-width: 0; width: 100%; }
+    .pct-track { flex: 1; height: 5px; }
+    .pct-num { font-size: 12px; width: auto; min-width: 40px; }
+    /* Status */
+    #dashTable tbody tr:not(.city-row) td:nth-child(6) {
+      margin-top: 4px;
+      font-size: 11px;
+    }
+
+    /* ── INPUT TABLE → CARD LIST ── */
+    #inputTable { display: block; }
+    #inputTable thead { display: none; }
+    #inputTable tbody { display: block; }
+    #inputTable tbody tr.city-row {
+      display: block;
+      padding: 8px 0 4px 0;
+    }
+    #inputTable tbody tr.city-row td {
+      display: block; border: none; padding: 0;
+    }
+    #inputTable tbody tr:not(.city-row) {
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+      box-shadow: var(--shadow);
+    }
+    #inputTable tbody tr:not(.city-row) td {
+      display: block; border: none; padding: 3px 0;
+    }
+    /* Name */
+    #inputTable tbody tr:not(.city-row) td:nth-child(1) {
+      font-weight: 600; font-size: 14px; margin-bottom: 10px;
+    }
+    /* Type, City — hide */
+    #inputTable tbody tr:not(.city-row) td:nth-child(2),
+    #inputTable tbody tr:not(.city-row) td:nth-child(3) { display: none; }
+    /* Revenue row */
+    #inputTable tbody tr:not(.city-row) td:nth-child(4) {
+      display: flex; align-items: center; gap: 10px;
+    }
+    #inputTable tbody tr:not(.city-row) td:nth-child(4)::before {
+      content: "Выручка, ₽";
+      font-size: 12px; color: var(--muted);
+      min-width: 90px; font-family: 'Inter', sans-serif;
+    }
+    /* FOT row */
+    #inputTable tbody tr:not(.city-row) td:nth-child(5) {
+      display: flex; align-items: center; gap: 10px;
+    }
+    #inputTable tbody tr:not(.city-row) td:nth-child(5)::before {
+      content: "ФОТ, ₽";
+      font-size: 12px; color: var(--muted);
+      min-width: 90px; font-family: 'Inter', sans-serif;
+    }
+    /* Percent */
+    #inputTable tbody tr:not(.city-row) td:nth-child(6) {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 4px;
+    }
+    #inputTable tbody tr:not(.city-row) td:nth-child(6)::before {
+      content: "% ФОТ";
+      font-size: 12px; color: var(--muted);
+      min-width: 90px; font-family: 'Inter', sans-serif;
+    }
+    .inline-edit { width: 140px; font-size: 14px; padding: 7px 10px; }
+
+    /* BUTTONS */
+    .actions { flex-direction: column; gap: 8px; }
+    .btn { width: 100%; justify-content: center; padding: 13px; font-size: 14px; }
+
+    /* HISTORY */
+    #histObjSel { width: 100%; }
+
+    /* ALERT */
+    .alert { font-size: 12px; }
+  }
+
 </style>
 </head>
 <body>
