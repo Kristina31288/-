@@ -1,4 +1,4 @@
-"""Ответы по ключевым словам из faq.json — режим без ИИ (и запасной при сбое ИИ).
+"""Ответы Виктории по ключевым словам из faq.json — режим без ИИ (и запасной при сбое ИИ).
 
 Только стандартная библиотека.
 """
@@ -19,6 +19,7 @@ class FaqItem:
     question: str
     keywords: tuple[str, ...]
     answer: str
+    answer_no_sell: str | None = None   # ответ для no_sell / после кризиса: без цен и оплаты
 
 
 @dataclass(frozen=True)
@@ -45,10 +46,11 @@ class FaqBase:
                 question=raw["question"],
                 keywords=tuple(normalize(k) for k in raw["keywords"] if normalize(k)),
                 answer=raw["answer"],
+                answer_no_sell=raw.get("answer_no_sell"),
             )
             for raw in data["items"]
         ]
-        return cls(items, data.get("fallback", "Этого я не знаю, передам вопрос автору."))
+        return cls(items, data.get("fallback", "Этого в моей базе нет."))
 
     @staticmethod
     def _keyword_hits(keyword: str, text: str, words: list[str]) -> bool:
@@ -72,7 +74,7 @@ class FaqBase:
         return FaqMatch(best, best_score)
 
     def answer(self, text: str) -> tuple[str, bool]:
-        """(ответ, найден_ли). Если не найден — текст «передам автору»."""
+        """(ответ, найден_ли). Если не найден — «Этого в моей базе нет…»."""
         m = self.match(text)
         if m.found:
             return m.item.answer, True
