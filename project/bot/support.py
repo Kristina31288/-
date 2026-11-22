@@ -32,6 +32,8 @@ _INSIST_RE = re.compile(
 _MONEY_RE = re.compile(r"\b(?:деньг\w*|верн\w*|возврат\w*)", re.IGNORECASE)
 _AGREE_SWAP_RE = re.compile(r"\b(?:да|давайте|замен\w*|хорошо|ок|согласн\w*|другой)\b", re.IGNORECASE)
 _CANCEL_RE = re.compile(r"\b(?:отмен\w*|передумал\w*|не\s+надо|не\s+нужно)\b", re.IGNORECASE)
+# Покупки на Wildberries: возврат по правилам площадки, бот его не оформляет.
+_WB_RE = re.compile(r"(?<!\w)(?:wb|вб|wildberries|в[аеи]й?лдберр?и\w*|в[ао]лдберр?и\w*)(?!\w)", re.IGNORECASE)
 MAX_EMAIL_RETRIES = 1
 
 
@@ -59,10 +61,11 @@ class SwapTarget:
     purchase: Purchase | None = None
     choices: tuple[str, ...] = ()
     reason: str = ""                # почему замена недоступна (если purchase есть, а choices нет)
+    gift: bool = False              # набор: вместо замены — подарок «Карта спокойного вечера»
 
     @property
     def ok(self) -> bool:
-        return self.purchase is not None and bool(self.choices)
+        return self.purchase is not None and (bool(self.choices) or self.gift)
 
 
 class Support:
@@ -92,6 +95,9 @@ class Support:
             if r is not None:
                 return r
         intent = detect_intent(text).intent
+        if intent in ("refund", "nofit", "complaint", "file_missing") and _WB_RE.search(text or ""):
+            self._stage.pop(user_id, None)
+            return Reply(texts.WB_REFUND)
         if intent == "refund":
             return self.start_refund(user_id, text, no_sell)
         if intent == "file_missing":
@@ -119,7 +125,7 @@ class Support:
         if target.ok:
             rows = self._swap_rows(target)
             self._stage[user_id] = _Stage("refund_offered", swap_rows=rows)
-            return Reply(texts.REFUND_OFFER_SWAP, rows)
+            return Reply(texts.REFUND_OFFER_GIFT if target.gift else texts.REFUND_OFFER_SWAP, rows)
         if target.purchase is None and not self._has_purchases(user_id):
             # покупки в боте нет (файл пришёл на e-mail) — замену оформляем по e-mail оплаты
             self._stage[user_id] = _Stage("refund_offered")
@@ -194,7 +200,7 @@ class Support:
             return Reply(texts.SWAP_AFTER_REFUND)
         target = self.swap_target(user_id)
         if target.ok:
-            return Reply(texts.SWAP_OFFER, self._swap_rows(target))
+            return Reply(texts.GIFT_OFFER if target.gift else texts.SWAP_OFFER, self._swap_rows(target))
         if target.purchase is not None or self._has_purchases(user_id):
             return Reply(texts.SWAP_NOT_AVAILABLE.format(reason=target.reason or "замена уже была"))
         email = find_email(text)
@@ -217,7 +223,7 @@ class Support:
     def _last_paid_purchase(self, user_id: int) -> Purchase | None:
         if self.db is None:
             return None
-        paid = [p for p in self.db.list_purchases(user_id) if p.source != followup.SWAP_SOURCE]
+        paid = [p for p in self.db.list_purchases(user_id) if p.source not in followup.NOT_PAID_SOURCES]
         return paid[-1] if paid else None
 
     def swap_target(self, user_id: int) -> SwapTarget:
@@ -226,7 +232,9 @@ class Support:
         if last is None:
             return SwapTarget()
         if last.product == "nabor":
-            return SwapTarget(last, reason="в наборе уже есть все три разбора")
+            if followup.gift_used(self.db, user_id, last.id):
+                return SwapTarget(last, reason="подарок по этой покупке уже отправлен")
+            return SwapTarget(last, gift=True)
         if followup.swap_used(self.db, user_id, last.id):
             return SwapTarget(last, reason="замена по этой покупке уже была")
         owned = followup.owned_guides(self.db, user_id)
@@ -237,5 +245,7 @@ class Support:
 
     @staticmethod
     def _swap_rows(target: SwapTarget) -> list[list[followup.Button]]:
+        if target.gift:
+            return followup.gift_rows(target.purchase.id)
         return [[followup.Button(followup.SHORT_TITLES[k], callback=f"fu:swap:{target.purchase.id}:{k}")]
                 for k in target.choices]

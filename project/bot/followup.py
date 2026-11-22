@@ -13,6 +13,8 @@ week — через 3 дня после /give (не в тихие часы, пе
 
 Безопасность: кризисная отметка → все продающие сообщения отменяются на 7 дней и не
 отправляются; отписка (/stop_tips), /delete_me и блокировка бота — тоже.
+no_sell (после заявки на возврат) → цепочка и «Как прошла неделя?» не отправляются никогда,
+карточки разборов — без кнопок оплаты.
 """
 from __future__ import annotations
 
@@ -176,6 +178,8 @@ def check(db: Storage, msg: Scheduled, now: datetime | None = None) -> Verdict:
         return Verdict("cancel", "blocked")
     if state.tips_off:
         return Verdict("cancel", "unsubscribed")
+    if msg.kind in SALES_KINDS and db.is_no_sell(msg.user_id):
+        return Verdict("cancel", "no_sell")
     if msg.kind in SALES_KINDS and sales_paused(db, msg.user_id, now):
         return Verdict("cancel", "crisis")
     if msg.kind in CHAIN_KINDS:
@@ -240,9 +244,12 @@ def _with_pay(cfg: Config, key: str, text: str) -> Outgoing:
     return Outgoing(text if rows else text + "\n\n" + texts.PAY_LINK_MISSING, rows)
 
 
-def build_card(cfg: Config, key: str, owned: set[str]) -> list[Outgoing]:
-    """Карточка разбора по кнопке ситуации и под ней — предложение набора."""
+def build_card(cfg: Config, key: str, owned: set[str], sell: bool = True) -> list[Outgoing]:
+    """Карточка разбора по кнопке ситуации и под ней — предложение набора.
+    sell=False (no_sell): только описание, без цены, кнопок оплаты и набора."""
     p = catalog.PRODUCTS[key]
+    if not sell:
+        return [Outgoing(f"{p.title}\n\n{p.description}")]
     if key in owned:
         out = [Outgoing(texts.CARD_OWNED.format(title=p.title))]
     else:
@@ -289,7 +296,13 @@ def _guide_offers(cfg: Config, keys: list[str]) -> list[list[Button]]:
 
 
 def build_week_answer(db: Storage, cfg: Config, user_id: int, answer: str,
-                      purchase_id: int) -> list[Outgoing]:
+                      purchase_id: int, sell: bool = True) -> list[Outgoing]:
+    if not sell:   # no_sell: ни одного предложения, замены и подарка (по покупке оформлен возврат)
+        if answer == "calm":
+            return [Outgoing(texts.WEEK_CALM)]
+        if answer == "hard":
+            return [Outgoing(texts.WEEK_HARD, send_lead_magnet=True), Outgoing(texts.WEEK_HARD_SAFETY)]
+        return [Outgoing(texts.WEEK_NOFIT_NO_SELL)]
     owned = owned_guides(db, user_id)
     others = [k for k in GUIDE_KEYS if k not in owned]
     price = catalog.format_price(catalog.PRODUCTS["telefon"].price_rub)
@@ -321,7 +334,9 @@ def build_week_answer(db: Storage, cfg: Config, user_id: int, answer: str,
         if purchase is None or purchase.user_id != user_id:
             return [Outgoing(texts.WEEK_NOFIT_NOTHING)]
         if purchase.product == "nabor":
-            return [Outgoing(texts.WEEK_NOFIT_NABOR)]
+            if gift_used(db, user_id, purchase_id):
+                return [Outgoing(texts.WEEK_NOFIT_NABOR.rsplit(" А ещё", 1)[0])]
+            return [Outgoing(texts.WEEK_NOFIT_NABOR, gift_rows(purchase_id))]
         if swap_used(db, user_id, purchase_id):
             return [Outgoing(texts.SWAP_ALREADY)]
         choices = [k for k in GUIDE_KEYS if k not in owned]
@@ -334,6 +349,31 @@ def build_week_answer(db: Storage, cfg: Config, user_id: int, answer: str,
 
 # --- замена разбора («Не подошло») --------------------------------------------
 SWAP_SOURCE = "swap"
+GIFT_SOURCE = "gift"          # подарок вместо замены для набора («Карта спокойного вечера»)
+NOT_PAID_SOURCES = (SWAP_SOURCE, GIFT_SOURCE)
+
+
+def gift_rows(purchase_id: int) -> list[list[Button]]:
+    return [[Button(texts.BTN_GIFT, callback=f"fu:gift:{purchase_id}")]]
+
+
+def gift_used(db: Storage, user_id: int, purchase_id: int) -> bool:
+    return any(p.source == GIFT_SOURCE and p.external_id == f"gift-{purchase_id}"
+               for p in db.list_purchases(user_id))
+
+
+def check_gift(db: Storage, user_id: int, purchase_id: int) -> SwapCheck:
+    purchase = db.get_purchase(purchase_id)
+    if purchase is None or purchase.user_id != user_id or purchase.product != "nabor":
+        return SwapCheck(False, texts.WEEK_NOFIT_NOTHING)
+    if gift_used(db, user_id, purchase_id):
+        return SwapCheck(False, texts.GIFT_ALREADY)
+    return SwapCheck(True)
+
+
+def record_gift(db: Storage, user_id: int, purchase_id: int, now: datetime | None = None) -> bool:
+    """Один подарок на покупку набора (уникальный индекс source + external_id)."""
+    return db.add_purchase(user_id, catalog.GIFT_EVENING_KEY, GIFT_SOURCE, f"gift-{purchase_id}", now=now)
 
 
 def swap_used(db: Storage, user_id: int, purchase_id: int) -> bool:
@@ -350,7 +390,7 @@ class SwapCheck:
 def check_swap(db: Storage, user_id: int, purchase_id: int, key: str) -> SwapCheck:
     purchase = db.get_purchase(purchase_id)
     if purchase is None or purchase.user_id != user_id or purchase.product == "nabor" \
-            or purchase.source == SWAP_SOURCE or key not in GUIDE_KEYS:
+            or purchase.source in NOT_PAID_SOURCES or key not in GUIDE_KEYS:
         return SwapCheck(False, texts.WEEK_NOFIT_NOTHING)
     if swap_used(db, user_id, purchase_id):
         return SwapCheck(False, texts.SWAP_ALREADY)

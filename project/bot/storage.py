@@ -501,9 +501,9 @@ class Storage:
     def count_between(self, what: str, start: datetime, end: datetime) -> int:
         queries = {
             "users": "SELECT COUNT(*) FROM users WHERE created_at >= ? AND created_at < ?",
-            "purchases": "SELECT COUNT(*) FROM purchases WHERE source != 'swap' "
+            "purchases": "SELECT COUNT(*) FROM purchases WHERE source NOT IN ('swap', 'gift') "
                          "AND granted_at >= ? AND granted_at < ?",
-            "swaps": "SELECT COUNT(*) FROM purchases WHERE source = 'swap' "
+            "swaps": "SELECT COUNT(*) FROM purchases WHERE source IN ('swap', 'gift') "
                      "AND granted_at >= ? AND granted_at < ?",
             "refunds": "SELECT COUNT(*) FROM refund_requests WHERE created_at >= ? AND created_at < ?",
             "crisis": "SELECT COUNT(*) FROM followup_state WHERE crisis_at >= ? AND crisis_at < ?",

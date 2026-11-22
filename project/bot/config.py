@@ -20,6 +20,8 @@ DEFAULT_PRODUCT_FILES = {
     "podrostok": "02-podrostok.pdf",
     "uroki": "03-uroki.pdf",
 }
+# Подарок вместо замены для набора (FILE_GIFT_EVENING).
+DEFAULT_GIFT_FILE = "04-podarok.pdf"
 POLICY_PLACEHOLDER = "[ССЫЛКА_ПОЛИТИКА]"
 
 
@@ -46,6 +48,7 @@ class Config:
     db_path: str = str(BASE_DIR / "data" / "bot.sqlite3")
     files_dir: str = str(BASE_DIR / "files")
     lead_magnet_file: str = "00-lead-magnet.pdf"
+    gift_file: str = DEFAULT_GIFT_FILE
     product_files: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_PRODUCT_FILES))
     max_message_len: int = 1000
     rate_limit_count: int = 6
@@ -176,6 +179,7 @@ def load_config(env: Mapping[str, str] | None = None) -> Config:
         files_dir=files_dir,
         lead_magnet_file=(env.get("LEAD_MAGNET_FILE") or "").strip() or "00-lead-magnet.pdf",
         product_files=product_files,
+        gift_file=(env.get("FILE_GIFT_EVENING") or "").strip() or DEFAULT_GIFT_FILE,
         max_message_len=_int(env, "MAX_MESSAGE_LEN", 1000, minimum=50),
         rate_limit_count=_int(env, "RATE_LIMIT_COUNT", 6, minimum=1),
         rate_limit_window=_int(env, "RATE_LIMIT_WINDOW", 60, minimum=1),
