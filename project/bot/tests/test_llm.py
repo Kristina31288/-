@@ -3,8 +3,10 @@ import asyncio
 
 from config import load_config
 from faq import FaqBase
-from llm import (HANDOFF_MARKER, FaqAssistant, GigaChatAssistant, build_system_prompt,
-                 load_knowledge, make_assistant, parse_model_output)
+import texts
+from llm import (REFUND_MARKER, UNKNOWN_MARKER, FaqAssistant, GigaChatAssistant,
+                 build_system_prompt, load_knowledge, looks_like_sales, make_assistant,
+                 parse_model_output)
 
 BASE = {"BOT_TOKEN": "1:A", "OWNER_ID": "1"}
 
@@ -12,22 +14,41 @@ BASE = {"BOT_TOKEN": "1:A", "OWNER_ID": "1"}
 def test_system_prompt_contains_rules_and_knowledge():
     p = build_system_prompt(load_knowledge())
     for s in ("ИИ", "Не обещай результат", "платёжные данные", "8-800-2000-122", "112",
-              HANDOFF_MARKER, "299 ₽", "690 ₽", "1 500 ₽", "7 дней"):
+              UNKNOWN_MARKER, REFUND_MARKER, "299 ₽", "690 ₽", "7 дней", "Этого в моей базе нет",
+              texts.VICTORIA_INTRO, "Никогда не выдавай себя за человека", "Не раскрывай"):
         assert s in p, s
-    for s in ("без нытья", "2–5 предложений", "сначала конкретный ответ"):   # правило тона
+    for s in ("без нытья", "2–5 предложений", "сначала конкретика"):   # правило тона
         assert s in p.lower(), s
+    # методика продаж и возражения
+    for s in ("ОДИН разбор", "набор", "Дорого", "Есть бесплатно", "Не поможет", "Подумаю",
+              "Вы психолог?", "не назвав цену"):
+        assert s in p, s
+    # решения владелицы: нет консультаций и передач автору
+    low = p.lower()
+    assert "консультац" not in low.replace("личных консультаций нет", "")
+    assert "1 500" not in p
+    assert "передам вопрос автору" not in low
     assert "музык" not in p.lower()          # в промпте нет следов чужих шаблонов
     assert "СЕЙЧАС НЕ ПРОДАВАЙ" not in p
     assert "СЕЙЧАС НЕ ПРОДАВАЙ" in build_system_prompt("kb", no_sales=True)
 
 
 def test_parse_model_output():
-    r = parse_model_output(f"Этого я не знаю, передам вопрос автору. {HANDOFF_MARKER}")
-    assert r.handoff and HANDOFF_MARKER not in r.text
+    r = parse_model_output(f"Этого в моей базе нет. {UNKNOWN_MARKER}")
+    assert r.unknown and UNKNOWN_MARKER not in r.text
+    r = parse_model_output(f"Поняла, помогу. {REFUND_MARKER}")
+    assert r.refund and REFUND_MARKER not in r.text
     r = parse_model_output("Разбор 1 стоит 299 ₽.")
-    assert not r.handoff
-    assert parse_model_output("").handoff
+    assert not r.unknown and not r.refund
+    assert parse_model_output("").unknown
     assert len(parse_model_output("а" * 10000).text) <= 3500
+
+
+def test_sales_filter():
+    assert looks_like_sales("Разбор стоит 299 ₽, оплатить можно в меню")
+    assert looks_like_sales("Купите набор")
+    assert not looks_like_sales("Файл придёт на e-mail, указанный при оплате.")
+    assert not looks_like_sales(texts.NO_SELL_ANSWER)
 
 
 def test_make_assistant_without_key_is_faq():
