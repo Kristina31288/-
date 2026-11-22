@@ -1,0 +1,196 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<title>Что сказать, когда… 10 фраз, которые останавливают ссору с ребёнком</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Great+Vibes&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet"><style>/* Вёрстка PDF-разборов «Что сказать, когда…». Токены из brand.md §8 */
+@page { size: A4; margin: 18mm 17mm 20mm 17mm; }
+@page :first { margin: 0; }
+:root{
+  --paper:#FBF7F1; --card:#FFFFFF; --line:#E8E0D4;
+  --ink:#1F2A2E; --muted:#5E6B6E;
+  --sage:#8E1D22; --sage-l:#F6ECE8;
+  --clay:#A8292E; --clay-l:#F8E6E2;
+  --coal:#232222; --cream:#F5EFE6;
+  --serif:"Cormorant Garamond",Georgia,serif; --script:"Great Vibes",cursive;
+  --green:#3C8D5A; --amber:#D69A2D; --red:#C0463A;
+}
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:"Montserrat","Inter",system-ui,sans-serif;font-size:10.6pt;line-height:1.55;color:var(--ink);background:#fff}
+
+/* ---------- Обложка ---------- */
+.cover{width:210mm;height:297mm;background:var(--coal);color:var(--cream);position:relative;overflow:hidden;page-break-after:always;padding:18mm 20mm 16mm}
+.cover .inner{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center}
+.cover .badge{font-size:9pt;letter-spacing:.3em;text-transform:uppercase;color:#BDB3A8}
+.cover .logo{margin-top:6mm;font-family:var(--serif);font-weight:300;font-size:32pt;letter-spacing:.06em;text-transform:uppercase;line-height:1}
+.cover .when{display:block;font-family:var(--script);text-transform:none;letter-spacing:0;color:#D0474C;font-size:44pt;line-height:1;margin-top:0}
+.cover .archimg{margin-top:6mm;width:84mm;height:90mm;border-radius:999px 999px 3px 3px;overflow:hidden;border:2.6mm solid var(--cream);box-shadow:0 0 0 .6mm #B8936A}
+.cover .archimg img{width:100%;height:100%;object-fit:cover;object-position:38% 30%}
+.cover .archimg.g img{filter:grayscale(1) contrast(1.05)}
+.cover .title{margin-top:7mm;font-family:var(--serif);font-weight:400;font-size:26pt;line-height:1.1;max-width:165mm;color:#fff}
+.cover .subtitle{margin-top:3mm;font-size:10.5pt;color:#BDB3A8;max-width:140mm;line-height:1.45}
+.cover .bubbles{margin-top:6mm;display:flex;flex-direction:column;gap:3mm;width:150mm}
+.cover .bubble{align-self:flex-start;background:#2E2C2B;border:1px solid #3d3a38;border-radius:14px 14px 14px 3px;padding:8px 14px;font-size:10.5pt;color:#BDB3A8;text-decoration:line-through;text-decoration-color:#D0474C;text-decoration-thickness:2px;text-align:left}
+.cover .bubble.yes{align-self:flex-end;border-radius:14px 14px 3px 14px;background:var(--sage);border-color:var(--sage);color:#fff;font-weight:600;text-decoration:none}
+.cover .bottom{margin-top:auto;display:flex;gap:3mm;justify-content:center;flex-wrap:wrap}
+.cover .pill{border:1px solid #4a4644;border-radius:999px;padding:6px 14px;font-size:9.5pt;color:var(--cream)}
+.cover .pill b{color:#E06A6E}
+
+/* ---------- Текст ---------- */
+main{padding:0}
+h1{display:none}
+h2{font-family:var(--serif);font-weight:600;font-size:21pt;line-height:1.15;margin:22pt 0 8pt;color:var(--ink);page-break-after:avoid;break-after:avoid}
+h2{padding-top:11pt;background:linear-gradient(var(--clay),var(--clay)) no-repeat 0 0/34px 3px;page-break-inside:avoid;break-inside:avoid}
+h3{font-family:var(--serif);font-weight:700;font-size:14pt;margin:14pt 0 5pt;color:var(--sage);page-break-after:avoid;break-after:avoid}
+p{margin:0 0 7pt;orphans:3;widows:3}
+li{orphans:2;widows:2}
+.about{page-break-inside:avoid;break-inside:avoid}
+.about h2{margin-top:18pt}
+ul,ol{margin:0 0 8pt;padding-left:16pt}
+li{margin:0 0 3pt}
+strong{font-weight:700}
+a{color:var(--sage)}
+hr{border:0;border-top:1px solid var(--line);margin:14pt 0}
+
+blockquote{margin:9pt 0;padding:9pt 12pt;background:var(--sage-l);border-left:4px solid var(--sage);border-radius:0 10px 10px 0;page-break-inside:avoid;break-inside:avoid}
+blockquote p:last-child{margin:0}
+blockquote.warn{background:var(--clay-l);border-left-color:var(--clay)}
+
+table{width:100%;border-collapse:separate;border-spacing:0;margin:8pt 0 10pt;font-size:9.6pt;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--sage);color:#fff;text-align:left;font-weight:600;padding:6pt 8pt}
+td{padding:6pt 8pt;border-top:1px solid var(--line);vertical-align:top}
+tr{page-break-inside:avoid;break-inside:avoid}
+tbody tr:nth-child(even) td{background:#FAF8F4}
+td:first-child{color:var(--muted)}
+td:nth-child(2){font-weight:600}
+
+/* Светофор */
+.light{border-radius:12px;padding:8pt 12pt 6pt;margin:8pt 0;border:1px solid var(--line);page-break-inside:avoid;break-inside:avoid}
+.light h3{margin-top:2pt;display:flex;align-items:center;gap:7pt}
+.light h3::before{content:"";width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.light.green{background:#EEF6F0}.light.green h3{color:var(--green)}.light.green h3::before{background:var(--green)}
+.light.amber{background:#FBF3E3}.light.amber h3{color:#A97515}.light.amber h3::before{background:var(--amber)}
+.light.red{background:#FAEAE7}.light.red h3{color:var(--red)}.light.red h3::before{background:var(--red)}
+
+/* План на 7 дней */
+.day{border:1px solid var(--line);border-radius:12px;padding:6pt 12pt 4pt;margin:7pt 0;page-break-inside:avoid;break-inside:avoid;position:relative}
+.day h3{color:var(--clay);margin-top:3pt}
+
+/* Шпаргалка */
+.cheat{page-break-before:always;break-before:page;background:var(--paper);border:2px dashed var(--sage);border-radius:16px;padding:14pt 18pt;page-break-inside:avoid;break-inside:avoid}
+.cheat h2{margin-top:0;color:var(--sage)}
+.cheat{background:#FBF8F3}
+.cheat h2{background-image:linear-gradient(var(--sage),var(--sage))}
+.cheat-note{font-size:9pt;color:var(--muted);margin-top:4pt}
+
+/* Финал */
+.help{background:var(--clay-l);border-radius:12px;padding:6pt 14pt 8pt;margin-top:12pt;page-break-inside:avoid;break-inside:avoid}
+.help h2{margin-top:8pt}
+.disclaimer{margin-top:16pt;font-size:8.6pt;color:var(--muted);border-top:1px solid var(--line);padding-top:8pt}
+</style></head>
+<body>
+<section class="cover"><div class="inner">
+  <span class="badge">Бесплатно</span>
+  <div class="logo">Бесплатно<span class="when">от автора</span></div>
+  <div class="archimg"><img src="file:///home/user/-/project/site/img/angel-left.jpg" alt=""></div>
+  <div class="title">10 фраз, которые останавливают ссору с ребёнком</div>
+  <div class="subtitle">Бесплатная шпаргалка от проекта «Что сказать, когда…»</div>
+  
+  <div class="bottom"><span class="pill"><b>10</b> готовых фраз</span><span class="pill">примеры диалогов</span><span class="pill">для детей 5–16 лет</span></div>
+</div></section><main><p>Ссора с ребёнком почти всегда разгоняется по одной схеме: вы устали, он устал, кто-то сказал резкое слово, и через минуту оба уже не слышат друг друга. Потом стыдно, хочется извиниться, но непонятно как.</p>
+<p>Это не значит, что с вами или с ребёнком что-то не так. Так бывает в любой семье. Ниже 10 фраз, которые помогают остановиться в моменте: не выиграть спор, а снизить градус, чтобы потом спокойно договориться.</p>
+<p>Как пользоваться: выберите 2–3 фразы, которые звучат «по-вашему», и попробуйте их на этой неделе. Не нужно учить все сразу. Фразы написаны в мужском роде; если у вас дочь, просто меняйте окончания.</p>
+<blockquote class="warn"><p><strong>Важно.</strong> Фразы работают лучше, когда сказаны спокойным, чуть более тихим голосом, чем обычно. Если чувствуете, что сейчас сорвётесь, начните с фразы № 1.</p>
+</blockquote>
+<h2>1. «Я сейчас злюсь. Мне нужно пять минут, потом договорим»</h2>
+<p><strong>Когда говорить.</strong> Когда вы чувствуете, что вот-вот закричите или скажете то, о чём пожалеете.</p>
+<p><strong>Почему работает.</strong> Вы показываете ребёнку, как взрослый справляется со злостью: не срывается, а берёт паузу. Ссору невозможно продолжать в одиночку. И вы обещаете вернуться, поэтому ребёнок не чувствует, что его бросили.</p>
+<p><strong>Пример.</strong>
+— Ты опять ничего не сделал!
+— Я сейчас злюсь. Мне нужно пять минут, потом договорим.
+(Через пять минут) — Я готова. Давай разберёмся, что с уроками.</p>
+<h2>2. «Ты очень расстроен. Я вижу»</h2>
+<p><strong>Когда говорить.</strong> Когда ребёнок плачет, кричит, хлопает дверью, и любые объяснения сейчас бесполезны.</p>
+<p><strong>Почему работает.</strong> Пока человеку кажется, что его не понимают, он доказывает громче. Названное чувство часто снижает накал: ребёнку больше не нужно показывать, как ему плохо. Этот приём подробно описан у Ю. Гиппенрейтер («активное слушание») и у А. Фабер и Э. Мазлиш.</p>
+<p><strong>Пример.</strong>
+— Ненавижу эту математику!
+— Ты очень расстроена. Я вижу.
+— Да! Я третий раз пересчитываю, и опять не сходится.</p>
+<h2>3. «Стоп. Давай начнём этот разговор заново»</h2>
+<p><strong>Когда говорить.</strong> Когда разговор с первых слов пошёл не туда: вы начали с упрёка, он ответил грубо.</p>
+<p><strong>Почему работает.</strong> Фраза даёт обоим право «отмотать назад» без проигравших. Вы не требуете извинений, а предлагаете второй шанс, в том числе себе.</p>
+<p><strong>Пример.</strong>
+— Опять носки по всей комнате!
+— Отстань, я занята.
+— Стоп. Давай начнём заново. Привет. Мне нужна твоя помощь с комнатой до ужина. Когда сможешь?</p>
+<h2>4. «Я на твоей стороне. Давай подумаем вместе»</h2>
+<p><strong>Когда говорить.</strong> Когда ребёнок воспринимает вас как противника: «вы всё запрещаете», «вам лишь бы ругать».</p>
+<p><strong>Почему работает.</strong> Ссора превращается из «я против тебя» в «мы против проблемы». Ребёнку легче соглашаться, когда решение придумано вместе, а не спущено сверху.</p>
+<p><strong>Пример.</strong>
+— Ты всегда забираешь телефон!
+— Я на твоей стороне. Мне не нравится каждый день ссориться из-за телефона. Давай подумаем вместе, как сделать по-честному.</p>
+<h2>5. «Мне не нравится, когда со мной так разговаривают. Скажи по-другому, и я послушаю»</h2>
+<p><strong>Когда говорить.</strong> Когда ребёнок грубит, огрызается, говорит обидное.</p>
+<p><strong>Почему работает.</strong> Это «я-сообщение» (подход Т. Гордона): вы говорите о себе, а не обвиняете. И сразу показываете выход: вы готовы слушать, но не в таком тоне. Граница есть, унижения нет.</p>
+<p><strong>Пример.</strong>
+— Ты вообще ничего не понимаешь!
+— Мне не нравится, когда со мной так разговаривают. Скажи по-другому, и я послушаю.
+— Ну… я просто хотела ещё полчаса погулять.</p>
+<h2>6. «Что тебе сейчас нужно, чтобы стало полегче?»</h2>
+<p><strong>Когда говорить.</strong> Когда ребёнок «не в себе»: устал, голоден, перевозбуждён, и вы не понимаете, что происходит.</p>
+<p><strong>Почему работает.</strong> Иногда ссора вообще не о том, о чём кажется. Вопрос помогает ребёнку самому понять, что с ним, а вам узнать то, чего вы не видели.</p>
+<p><strong>Пример.</strong>
+— Не буду я ничего делать!
+— Что тебе сейчас нужно, чтобы стало полегче?
+— Не знаю… Поесть, наверное. И чтобы никто не трогал десять минут.</p>
+<h2>7. «Ты можешь злиться. Бить и обзываться нельзя»</h2>
+<p><strong>Когда говорить.</strong> Когда злость ребёнка переходит в действия: толкается, бросает вещи, обзывается.</p>
+<p><strong>Почему работает.</strong> Фраза разделяет чувство и поступок. Злиться можно: это нормальное чувство. Но есть правила, как его выражать. Ребёнок слышит, что его не стыдят за эмоцию, а останавливают поступок.</p>
+<p><strong>Пример.</strong>
+— Дура! (бросает тетрадь)
+— Ты можешь злиться. Бросать вещи и обзываться нельзя. Подними тетрадь и расскажи, что случилось.</p>
+<h2>8. «Я тебя услышала. Ответ всё равно нет, и мне жаль, что тебе обидно»</h2>
+<p><strong>Когда говорить.</strong> Когда ребёнок в десятый раз просит то, на что вы уже ответили «нет», и спор идёт по кругу.</p>
+<p><strong>Почему работает.</strong> Вы не спорите и не оправдываетесь. Признаёте его желание и его обиду, но решение не меняете. Спокойная твёрдость без крика со временем часто уменьшает такие споры: ребёнок видит, что «додавить» не получится.</p>
+<p><strong>Пример.</strong>
+— Ну пожалуйста, ну ещё одну игру!
+— Я тебя услышала. Ответ всё равно нет, и мне жаль, что тебе обидно.
+— Это нечестно!
+— Понимаю, что тебе так кажется. Завтра будет снова твоё время.</p>
+<h2>9. «Прости, я накричала. Это было неправильно. Я злилась на…, а не на тебя»</h2>
+<p><strong>Когда говорить.</strong> После срыва, когда вы успокоились. Лучше в тот же день.</p>
+<p><strong>Почему работает.</strong> Извинение взрослого не роняет авторитет. Оно показывает, что ошибки можно исправлять, и снимает с ребёнка чувство, что он «плохой». И вы перестаёте носить в себе вину весь вечер.</p>
+<p><strong>Пример.</strong>
+— Прости, я накричала. Это было неправильно. Я злилась на работу, а не на тебя.
+— Ладно… Я тоже не хотел так.
+— Давай обнимемся и попробуем ещё раз.</p>
+<h2>10. «Давай вернёмся к этому, когда оба остынем. Сегодня в восемь?»</h2>
+<p><strong>Когда говорить.</strong> Когда вопрос важный (оценки, правила, поведение), но сейчас его не решить: эмоции слишком сильные.</p>
+<p><strong>Почему работает.</strong> Важные разговоры лучше вести спокойно. Конкретное время показывает, что вы не уходите от темы, а переносите её. Особенно хорошо работает с подростками: им нужно время, чтобы не «сдаться» на глазах.</p>
+<p><strong>Пример.</strong>
+— Я не буду с тобой это обсуждать!
+— Хорошо. Давай вернёмся к этому, когда оба остынем. Сегодня в восемь?
+— Ну… в девять.
+— Договорились, в девять.</p>
+<section class="help"><h2>Когда фраз недостаточно</h2>
+<p>Эти фразы помогают в обычных семейных ссорах. Но есть ситуации, когда разговором дома не обойтись и нужна помощь специалиста. Не ждите, если вы замечаете:</p>
+<ul>
+<li>разговоры ребёнка о смерти или о том, что он не хочет жить;</li>
+<li>следы самоповреждений;</li>
+<li>насилие над ребёнком или со стороны ребёнка, после которого остаются травмы;</li>
+<li>резкую потерю веса, отказ от еды, бессонницу неделями;</li>
+<li>признаки употребления алкоголя или других веществ;</li>
+<li>внезапную полную изоляцию: ребёнок перестал общаться со всеми.</li>
+</ul>
+<p>Куда обратиться: школьный психолог, психолог центра психолого-педагогической помощи (ППМС-центр) в вашем городе, педиатр или невролог, если есть жалобы на здоровье.</p>
+<p><strong>Телефон доверия для детей, подростков и родителей: 8-800-2000-122.</strong> Бесплатно, круглосуточно, анонимно. Звонить можно и ребёнку, и вам, если вы просто на пределе.</p>
+<p>При угрозе жизни звоните 112.</p>
+</section><h2>Если хочется разобраться глубже</h2>
+<p>Эти 10 фраз про любую ссору. Но чаще всего ссоры повторяются вокруг одних и тех же тем. Для трёх самых частых мы сделали отдельные разборы:</p>
+<ul>
+<li>«Что сказать, когда… ребёнок не отлипает от телефона и игр»</li>
+<li>«Что сказать, когда… подросток хамит или закрылся»</li>
+<li>«Что сказать, когда… ребёнок не хочет учиться, а уроки заканчиваются криком»</li>
+</ul>
+<p>В каждом: как понять, норма это или пора к специалисту, что происходит в разном возрасте, 12–15 готовых фраз, план на 7 дней и шпаргалка на холодильник. Один разбор стоит 299 ₽, все три вместе 690 ₽. Если разбор не подойдёт, в течение 7 дней можно вернуть деньги.</p>
+<p>Если сейчас вам хватает этих 10 фраз, это отлично. Возвращайтесь, когда понадобится.</p>
+<hr />
+<p class="disclaimer"><em>Материал носит информационно-просветительский характер и не является медицинской или психотерапевтической помощью. Он не заменяет консультацию специалиста. Если вы беспокоитесь о состоянии ребёнка, обратитесь к психологу, педиатру или неврологу. Примеры диалогов вымышлены.</em></p></main></body></html>

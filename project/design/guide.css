@@ -4,39 +4,40 @@
 :root{
   --paper:#FBF7F1; --card:#FFFFFF; --line:#E8E0D4;
   --ink:#1F2A2E; --muted:#5E6B6E;
-  --sage:#2F6B5A; --sage-l:#E6F0EB;
-  --clay:#D9734E; --clay-l:#FBE9E1;
+  --sage:#8E1D22; --sage-l:#F6ECE8;
+  --clay:#A8292E; --clay-l:#F8E6E2;
+  --coal:#232222; --cream:#F5EFE6;
+  --serif:"Cormorant Garamond",Georgia,serif; --script:"Great Vibes",cursive;
   --green:#3C8D5A; --amber:#D69A2D; --red:#C0463A;
 }
 *{box-sizing:border-box}
 html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-body{margin:0;font-family:"Inter",system-ui,sans-serif;font-size:10.6pt;line-height:1.55;color:var(--ink);background:#fff}
+body{margin:0;font-family:"Montserrat","Inter",system-ui,sans-serif;font-size:10.6pt;line-height:1.55;color:var(--ink);background:#fff}
 
 /* ---------- Обложка ---------- */
-.cover{width:210mm;height:297mm;background:var(--paper);position:relative;overflow:hidden;page-break-after:always;padding:26mm 22mm}
-.cover .blob1{position:absolute;right:-60mm;top:-50mm;width:170mm;height:170mm;border-radius:50%;background:var(--sage-l)}
-.cover .blob2{position:absolute;left:-40mm;bottom:-60mm;width:150mm;height:150mm;border-radius:50%;background:var(--clay-l)}
-.cover .inner{position:relative;height:100%;display:flex;flex-direction:column}
-.cover .badge{display:inline-block;align-self:flex-start;background:var(--sage);color:#fff;font-weight:700;font-size:10pt;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:999px}
-.cover .kicker{margin-top:38mm;font-size:30pt;font-weight:700;color:var(--sage);line-height:1.1}
-.cover .title{margin-top:6mm;font-size:34pt;font-weight:700;line-height:1.12;color:var(--ink);max-width:160mm}
-.cover .subtitle{margin-top:9mm;font-size:13.5pt;color:var(--muted);max-width:140mm;line-height:1.45}
-.cover .bubbles{margin-top:16mm;display:flex;flex-direction:column;gap:5mm;max-width:150mm}
-.cover .bubble{position:relative;align-self:flex-start;background:#fff;border:1px solid var(--line);border-radius:18px 18px 18px 4px;padding:12px 18px;font-size:13pt;line-height:1.4;box-shadow:0 6px 18px rgba(31,42,46,.07)}
-.cover .bubble.no{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--clay);text-decoration-thickness:2px}
-.cover .bubble.yes{align-self:flex-end;border-radius:18px 18px 4px 18px;background:var(--sage);color:#fff;font-weight:600;border-color:var(--sage)}
-.cover .bottom{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:10mm}
-.cover .promise{display:flex;gap:4mm;flex-wrap:wrap}
-.cover .pill{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 14px;font-size:10.5pt;font-weight:600}
-.cover .pill b{color:var(--clay)}
-.cover .brand{font-size:9.5pt;color:var(--muted);text-align:right;line-height:1.4}
+.cover{width:210mm;height:297mm;background:var(--coal);color:var(--cream);position:relative;overflow:hidden;page-break-after:always;padding:18mm 20mm 16mm}
+.cover .inner{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center}
+.cover .badge{font-size:9pt;letter-spacing:.3em;text-transform:uppercase;color:#BDB3A8}
+.cover .logo{margin-top:6mm;font-family:var(--serif);font-weight:300;font-size:32pt;letter-spacing:.06em;text-transform:uppercase;line-height:1}
+.cover .when{display:block;font-family:var(--script);text-transform:none;letter-spacing:0;color:#D0474C;font-size:44pt;line-height:1;margin-top:0}
+.cover .archimg{margin-top:6mm;width:84mm;height:90mm;border-radius:999px 999px 3px 3px;overflow:hidden;border:2.6mm solid var(--cream);box-shadow:0 0 0 .6mm #B8936A}
+.cover .archimg img{width:100%;height:100%;object-fit:cover;object-position:38% 30%}
+.cover .archimg.g img{filter:grayscale(1) contrast(1.05)}
+.cover .title{margin-top:7mm;font-family:var(--serif);font-weight:400;font-size:26pt;line-height:1.1;max-width:165mm;color:#fff}
+.cover .subtitle{margin-top:3mm;font-size:10.5pt;color:#BDB3A8;max-width:140mm;line-height:1.45}
+.cover .bubbles{margin-top:6mm;display:flex;flex-direction:column;gap:3mm;width:150mm}
+.cover .bubble{align-self:flex-start;background:#2E2C2B;border:1px solid #3d3a38;border-radius:14px 14px 14px 3px;padding:8px 14px;font-size:10.5pt;color:#BDB3A8;text-decoration:line-through;text-decoration-color:#D0474C;text-decoration-thickness:2px;text-align:left}
+.cover .bubble.yes{align-self:flex-end;border-radius:14px 14px 3px 14px;background:var(--sage);border-color:var(--sage);color:#fff;font-weight:600;text-decoration:none}
+.cover .bottom{margin-top:auto;display:flex;gap:3mm;justify-content:center;flex-wrap:wrap}
+.cover .pill{border:1px solid #4a4644;border-radius:999px;padding:6px 14px;font-size:9.5pt;color:var(--cream)}
+.cover .pill b{color:#E06A6E}
 
 /* ---------- Текст ---------- */
 main{padding:0}
 h1{display:none}
-h2{font-size:17pt;line-height:1.25;margin:22pt 0 8pt;color:var(--ink);page-break-after:avoid;break-after:avoid}
-h2::before{content:"";display:block;width:34px;height:4px;border-radius:2px;background:var(--clay);margin-bottom:8pt}
-h3{font-size:12.5pt;margin:14pt 0 5pt;color:var(--sage);page-break-after:avoid;break-after:avoid}
+h2{font-family:var(--serif);font-weight:600;font-size:21pt;line-height:1.15;margin:22pt 0 8pt;color:var(--ink);page-break-after:avoid;break-after:avoid}
+h2{padding-top:11pt;background:linear-gradient(var(--clay),var(--clay)) no-repeat 0 0/34px 3px;page-break-inside:avoid;break-inside:avoid}
+h3{font-family:var(--serif);font-weight:700;font-size:14pt;margin:14pt 0 5pt;color:var(--sage);page-break-after:avoid;break-after:avoid}
 p{margin:0 0 7pt;orphans:3;widows:3}
 li{orphans:2;widows:2}
 .about{page-break-inside:avoid;break-inside:avoid}
@@ -74,7 +75,8 @@ td:nth-child(2){font-weight:600}
 /* Шпаргалка */
 .cheat{page-break-before:always;break-before:page;background:var(--paper);border:2px dashed var(--sage);border-radius:16px;padding:14pt 18pt;page-break-inside:avoid;break-inside:avoid}
 .cheat h2{margin-top:0;color:var(--sage)}
-.cheat h2::before{background:var(--sage)}
+.cheat{background:#FBF8F3}
+.cheat h2{background-image:linear-gradient(var(--sage),var(--sage))}
 .cheat-note{font-size:9pt;color:var(--muted);margin-top:4pt}
 
 /* Финал */

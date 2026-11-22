@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+data/
+*.sqlite3
+*.sqlite3-*
+backups/
+# PDF платных разборов не храним в репозитории
+files/*.pdf

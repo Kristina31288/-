@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Что сказать, когда… — готовые фразы и план для трудных ситуаций с детьми</title>
+<meta name="description" content="Короткие разборы трудных ситуаций с детьми: телефон и игры, грубость подростка, уроки со слезами. Норма или к специалисту, готовые фразы, план на 7 дней. 299 ₽.">
+<meta property="og:title" content="Что сказать, когда… — готовые фразы и план на неделю">
+<meta property="og:description" content="Разборы трудных ситуаций с детьми: что сказать сегодня вечером и что делать всю неделю.">
+<meta property="og:image" content="img/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FBF7F1;--card:#FFFFFF;--line:#E8E0D4;--ink:#1F2A2E;--muted:#5E6B6E;
+  --sage:#2F6B5A;--sage-l:#E6F0EB;--on-sage:#FFFFFF;--clay:#D9734E;--clay-l:#FBE9E1;
+  --green:#3C8D5A;--amber:#D69A2D;--red:#C0463A;--shadow:0 8px 24px rgba(31,42,46,.08)
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#151A1B;--card:#1E2527;--line:#2E3739;--ink:#ECE7DF;--muted:#A6B0B1;
+  --sage:#7FB8A4;--sage-l:#203530;--on-sage:#0F1A17;--clay:#F09571;--clay-l:#3A2620;--shadow:0 8px 24px rgba(0,0,0,.35)}}
+:root[data-theme="dark"]{
+  --paper:#151A1B;--card:#1E2527;--line:#2E3739;--ink:#ECE7DF;--muted:#A6B0B1;
+  --sage:#7FB8A4;--sage-l:#203530;--on-sage:#0F1A17;--clay:#F09571;--clay-l:#3A2620;--shadow:0 8px 24px rgba(0,0,0,.35)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:var(--sage)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+section{padding:64px 0}
+h1,h2,h3{line-height:1.2;margin:0 0 14px}
+h1{font-size:clamp(34px,6.4vw,58px);letter-spacing:-.02em}
+h2{font-size:clamp(26px,4.2vw,38px);letter-spacing:-.01em}
+h3{font-size:20px}
+p{margin:0 0 12px}
+.muted{color:var(--muted)}
+.kicker{color:var(--sage);font-weight:700}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:14px 26px;border-radius:14px;font-weight:700;text-decoration:none;border:0;cursor:pointer;font-size:17px;transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.btn-main{background:var(--sage);color:var(--on-sage)}
+.btn-warm{background:var(--clay);color:#fff}
+.btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:16px}
+@media(min-width:760px){.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}}
+
+/* шапка */
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;gap:12px}
+.logo{font-weight:700;text-decoration:none;color:var(--ink);white-space:nowrap}
+.logo span{color:var(--sage)}
+header .btn{min-height:40px;padding:8px 16px;font-size:15px}
+
+/* hero */
+.hero{padding-top:48px;position:relative;overflow:hidden}
+.hero .grid{align-items:center}
+@media(min-width:900px){.hero .grid{grid-template-columns:1.1fr .9fr}}
+.hero h1 .k{color:var(--sage);display:block}
+.lead{font-size:19px;color:var(--muted);max-width:34em}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin:22px 0 10px}
+.chat{display:flex;flex-direction:column;gap:14px;padding:20px 0}
+.bubble{max-width:88%;padding:14px 18px;border-radius:20px 20px 20px 6px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);font-size:17px}
+.bubble.no{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--clay);text-decoration-thickness:2px}
+.bubble.yes{align-self:flex-end;border-radius:20px 20px 6px 20px;background:var(--sage);color:var(--on-sage);border-color:var(--sage);font-weight:600}
+.chat small{color:var(--muted);font-size:13px;align-self:flex-end;margin-top:-6px}
+
+/* боли */
+.pains{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pain{padding:18px 20px;border-radius:16px;background:var(--paper);border:1px solid var(--line);font-weight:600}
+
+/* структура разбора */
+.steps{counter-reset:s}
+.step{position:relative;padding-left:58px}
+.step::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:0;width:42px;height:42px;border-radius:12px;background:var(--clay-l);color:var(--clay);font-weight:700;display:grid;place-items:center;font-size:19px}
+.lights{display:flex;gap:8px;margin:8px 0 4px}
+.lights i{width:14px;height:14px;border-radius:50%;display:inline-block}
+
+/* продукты */
+.product{display:flex;flex-direction:column;padding:0;overflow:hidden}
+.product .cover{background:var(--sage-l);aspect-ratio:794/1123;overflow:hidden;border-bottom:1px solid var(--line)}
+.product .cover img{width:100%;height:100%;object-fit:cover;object-position:top}
+@media(max-width:759px){.product .cover{aspect-ratio:auto;height:300px}}
+.bundle .price s{color:inherit;opacity:.7}
+.short{display:none}
+@media(max-width:480px){.long{display:none}.short{display:inline}.theme{padding:6px 8px}}
+.product .body{padding:20px;display:flex;flex-direction:column;gap:10px;flex:1}
+.product ul{margin:0;padding-left:20px;color:var(--muted);font-size:15px}
+.price{font-size:28px;font-weight:700}
+.price s{font-size:17px;color:var(--muted);font-weight:400;margin-left:6px}
+.product .btn{margin-top:auto}
+.bundle{margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;background:var(--sage);color:var(--on-sage);border-color:var(--sage)}
+.bundle .muted{color:inherit;opacity:.85}
+.bundle .btn{background:var(--card);color:var(--ink)}
+
+/* автор */
+.author{display:grid;gap:22px;align-items:center}
+@media(min-width:760px){.author{grid-template-columns:220px 1fr}}
+.avatar{width:220px;max-width:60vw;aspect-ratio:1;border-radius:24px;background:var(--clay-l);display:grid;place-items:center;color:var(--clay);font-weight:700;text-align:center;padding:16px}
+
+/* faq */
+details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:10px}
+summary{cursor:pointer;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:12px}
+summary::after{content:"+";color:var(--sage);font-size:22px;line-height:1}
+details[open] summary::after{content:"−"}
+details p{margin:12px 0 0;color:var(--muted)}
+
+.help{background:var(--clay-l);border-radius:18px;padding:22px}
+footer{padding:36px 0 56px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+footer a{color:var(--muted)}
+.theme{background:none;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:6px 10px;cursor:pointer;font:inherit;font-size:14px}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <a class="logo" href="#">Что сказать, <span>когда…</span></a>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="theme" id="theme" type="button" aria-label="Сменить тему">Тема</button>
+    <a class="btn btn-main" href="[ССЫЛКА_БОТ]"><span class="long">Забрать бесплатно</span><span class="short">10 фраз</span></a>
+  </div>
+</div></header>
+
+<section class="hero"><div class="wrap grid">
+  <div>
+    <h1><span class="k">Что сказать, когда…</span>ребёнок не слушает, грубит или не отлипает от телефона</h1>
+    <p class="lead">Короткие разборы трудных ситуаций с детьми. Готовые фразы, которые можно сказать уже сегодня вечером, и спокойный план на неделю.</p>
+    <div class="cta">
+      <a class="btn btn-main" href="[ССЫЛКА_БОТ]">Получить 10 фраз бесплатно</a>
+      <a class="btn btn-ghost" href="#razbory">Смотреть разборы</a>
+    </div>
+    <p class="muted" style="font-size:14px">Бесплатные фразы придут в Telegram-бот. Разбор — 299 ₽, читается за 20 минут.</p>
+  </div>
+  <div class="chat" aria-hidden="true">
+    <div class="bubble no">Сколько можно сидеть в телефоне!</div>
+    <div class="bubble yes">Вижу, игра интересная. Через 10 минут выключаем — поставишь сам таймер?</div>
+    <small>пример фразы из разбора</small>
+    <div class="bubble no">Не смей так со мной разговаривать!</div>
+    <div class="bubble yes">Я не буду продолжать в таком тоне. Вернёмся к разговору через полчаса.</div>
+  </div>
+</div></section>
+
+<section class="pains"><div class="wrap">
+  <h2>Если вы узнаёте себя — это нормально</h2>
+  <p class="muted">Так описывают свои вечера тысячи родителей. С вами и с ребёнком всё в порядке, просто не хватает слов и плана.</p>
+  <div class="grid g2" style="margin-top:22px">
+    <div class="pain">Забираете телефон — и начинается скандал, слёзы или даже драка</div>
+    <div class="pain">Подросток огрызается, хлопает дверью или молчит неделями</div>
+    <div class="pain">Каждый вечер часами сидите над домашкой и срываетесь на крик</div>
+    <div class="pain">Потом стыдно, и непонятно, как поговорить по-другому</div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Что внутри каждого разбора</h2>
+  <p class="muted">Не теория и не «проявите эмпатию», а конкретные шаги. 10–14 страниц, удобно читать с телефона.</p>
+  <div class="grid g2 steps" style="margin-top:26px">
+    <div class="step card"><h3>Светофор: норма или к специалисту</h3>
+      <div class="lights"><i style="background:var(--green)"></i><i style="background:var(--amber)"></i><i style="background:var(--red)"></i></div>
+      <p class="muted">Понятные признаки, когда можно справиться самим, а когда нужна помощь.</p></div>
+    <div class="step card"><h3>Почему так происходит</h3><p class="muted">Отдельно для 5–7, 8–11 и 12–16 лет — в каждом возрасте свои причины.</p></div>
+    <div class="step card"><h3>Готовые фразы</h3><p class="muted">Таблица «вместо этого — скажите так» и почему это работает.</p></div>
+    <div class="step card"><h3>План на 7 дней</h3><p class="muted">Что делать каждый день, чтобы стало спокойнее. Плюс ответы на возражения ребёнка.</p></div>
+    <div class="step card"><h3>Шпаргалка на холодильник</h3><p class="muted">Одна страница с главными правилами и фразами — распечатать и держать перед глазами.</p></div>
+    <div class="step card"><h3>Если не помогло</h3><p class="muted">Куда обращаться дальше, включая бесплатные и круглосуточные службы.</p></div>
+  </div>
+</div></section>
+
+<section id="razbory" style="background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line)"><div class="wrap">
+  <h2>Разборы</h2>
+  <p class="muted">Выберите ситуацию, которая беспокоит сейчас.</p>
+  <div class="grid g3" style="margin-top:24px">
+    <article class="card product">
+      <div class="cover"><img src="img/01-telefon.png" alt="Обложка разбора «Что сказать, когда ребёнок не отлипает от телефона и игр»" loading="lazy"></div>
+      <div class="body">
+        <h3>…ребёнок не отлипает от телефона и игр</h3>
+        <ul><li>как договориться о правилах без войны</li><li>что делать, если снял родительский контроль</li><li>шаблон семейного договора</li></ul>
+        <div class="price">299 ₽</div>
+        <a class="btn btn-main" href="[ССЫЛКА_ОПЛАТА_1]">Купить разбор</a>
+      </div>
+    </article>
+    <article class="card product">
+      <div class="cover"><img src="img/02-podrostok.png" alt="Обложка разбора «Что сказать, когда подросток хамит или закрылся»" loading="lazy"></div>
+      <div class="body">
+        <h3>…подросток хамит или закрылся</h3>
+        <ul><li>что делать в момент грубости и после</li><li>как разговорить, если молчит неделями</li><li>как извиниться, если сорвались сами</li></ul>
+        <div class="price">299 ₽</div>
+        <a class="btn btn-main" href="[ССЫЛКА_ОПЛАТА_2]">Купить разбор</a>
+      </div>
+    </article>
+    <article class="card product">
+      <div class="cover"><img src="img/03-uroki.png" alt="Обложка разбора «Что сказать, когда ребёнок не хочет учиться»" loading="lazy"></div>
+      <div class="body">
+        <h3>…ребёнок не хочет учиться, а уроки — это крик</h3>
+        <ul><li>как отличить «не хочет» от «не может»</li><li>стоп-приём, когда закипаете</li><li>лесенка к самостоятельным урокам</li></ul>
+        <div class="price">299 ₽</div>
+        <a class="btn btn-main" href="[ССЫЛКА_ОПЛАТА_3]">Купить разбор</a>
+      </div>
+    </article>
+  </div>
+  <div class="card bundle">
+    <div><h3 style="margin:0">Все три разбора</h3><p class="muted" style="margin:4px 0 0">Телефон, подросток и уроки — часто это одна история.</p></div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="price">690 ₽ <s>897 ₽</s></div><a class="btn" href="[ССЫЛКА_ОПЛАТА_НАБОР]">Купить набор</a></div>
+  </div>
+  <p class="muted" style="font-size:14px;margin-top:14px">Файл придёт на e-mail и в Telegram сразу после оплаты. Не подошло — вернём деньги в течение 7 дней, условия в <a href="[ССЫЛКА_ОФЕРТА]">оферте</a>.</p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="author">
+    <div class="avatar">[Фото автора]</div>
+    <div>
+      <p class="kicker">Автор</p>
+      <h2>[Имя Фамилия]</h2>
+      <p>Педагог, преподаватель с [N] лет опыта работы с детьми и родителями. Диплом по психологии управления, образование по руководству творческим коллективом.</p>
+      <p class="muted">[Пара предложений от первого лица: почему вы это делаете и что видели в работе с детьми.]</p>
+      <div class="card" style="margin-top:18px">
+        <h3>Консультация по вашей ситуации</h3>
+        <p class="muted">40 минут онлайн: разберём, что происходит, и составим план под вашу семью. Это педагогическая консультация, не психотерапия.</p>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div class="price">1 500 ₽</div><a class="btn btn-warm" href="[ССЫЛКА_КОНСУЛЬТАЦИЯ]">Записаться</a></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<section style="padding-top:0"><div class="wrap">
+  <h2>Вопросы</h2>
+  <details><summary>Чем это лучше бесплатных статей?</summary><p>Статьи объясняют, почему так происходит. Разбор даёт готовые фразы под конкретный возраст, план на каждый день недели и ответы на то, что скажет ребёнок в ответ.</p></details>
+  <details><summary>Сколько времени нужно?</summary><p>Прочитать — около 20 минут. Дальше по 10–15 минут в день на шаги плана.</p></details>
+  <details><summary>Это поможет точно?</summary><p>Гарантировать результат никто честно не может: дети и семьи разные. У многих семей становится спокойнее, если пробовать шаги неделю. Если разбор не подошёл, вернём деньги в течение 7 дней.</p></details>
+  <details><summary>Подойдёт, если ребёнку 5 или 16?</summary><p>Да, в каждом разборе отдельные объяснения и фразы для 5–7, 8–11 и 12–16 лет.</p></details>
+  <details><summary>Это заменяет психолога?</summary><p>Нет. Это информационный материал для родителей. В каждом разборе есть «светофор» — признаки, при которых нужно обратиться к специалисту.</p></details>
+  <details><summary>Как я получу файл?</summary><p>Сразу после оплаты на e-mail и в Telegram-бот. Формат PDF, открывается на телефоне и компьютере.</p></details>
+</div></section>
+
+<section style="padding-top:0"><div class="wrap">
+  <div class="help">
+    <h3>Если ситуация острая</h3>
+    <p style="margin:0">Если ребёнок говорит о смерти, причиняет себе вред или кто-то в опасности — не ждите. Детский телефон доверия <b>8-800-2000-122</b> (бесплатно, круглосуточно, для детей и родителей). При угрозе жизни — <b>112</b>.</p>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <p>[ФИО], самозанятая, ИНН [ИНН] · [e-mail]</p>
+  <p><a href="[ССЫЛКА_ОФЕРТА]">Оферта</a> · <a href="[ССЫЛКА_ПОЛИТИКА]">Политика обработки персональных данных</a></p>
+  <p>Материалы носят информационно-просветительский характер, не являются медицинской или психологической помощью и не заменяют консультацию специалиста.</p>
+</div></footer>
+
+<script>
+(function(){
+  var root=document.documentElement,btn=document.getElementById('theme'),k='theme';
+  try{var s=localStorage.getItem(k);if(s)root.setAttribute('data-theme',s)}catch(e){}
+  btn.addEventListener('click',function(){
+    var dark=root.getAttribute('data-theme')?root.getAttribute('data-theme')==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+    var next=dark?'light':'dark';root.setAttribute('data-theme',next);
+    try{localStorage.setItem(k,next)}catch(e){}
+  });
+})();
+</script>
+</body>
+</html>

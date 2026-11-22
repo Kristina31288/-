@@ -1,0 +1,23 @@
+[Unit]
+Description=Telegram-бот «Что сказать, когда…»
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=botuser
+Group=botuser
+WorkingDirectory=/opt/chtoskazat-bot
+EnvironmentFile=/opt/chtoskazat-bot/.env
+ExecStart=/opt/chtoskazat-bot/.venv/bin/python main.py
+Restart=always
+RestartSec=5
+# Ограничения на случай ошибки в коде
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/chtoskazat-bot/data
+
+[Install]
+WantedBy=multi-user.target

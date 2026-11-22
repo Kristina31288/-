@@ -2,11 +2,11 @@
 """Сборка PDF-разборов из Markdown.
 
 Использование:
-    python3 project/design/build.py            # собрать все guides/*.md
-    python3 project/design/build.py 01-telefon # собрать один
+    python3 design/build.py            # собрать все guides/0*.md
+    python3 design/build.py 01-telefon # собрать один
 
-Зависимости: python-пакет markdown; Node.js + playwright (Chromium).
-Результат: project/dist/<имя>.pdf, project/dist/<имя>.html, project/dist/covers/<имя>.png
+Зависимости: python-пакет markdown; Node.js + playwright (Chromium); интернет для Google Fonts.
+Результат: dist/<имя>.pdf, dist/<имя>.html, dist/covers/<имя>.png (копия обложки — в site/img/).
 """
 import html
 import json
@@ -22,20 +22,30 @@ ROOT = Path(__file__).resolve().parent.parent
 GUIDES = ROOT / "guides"
 DIST = ROOT / "dist"
 CSS = (ROOT / "design" / "guide.css").read_text(encoding="utf-8")
+FONTS = ("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700"
+         "&family=Great+Vibes&family=Montserrat:wght@400;600;700&display=swap")
 
+# Обложки: иллюстрация (site/img/<img>.jpg) и пара «вместо этого → скажите так»
 META = {
-    "00-lead-magnet": {"badge": "Бесплатно", "kicker": "10 фраз,", "pills": ["<b>10</b> готовых фраз", "примеры диалогов", "для детей 5–16 лет"]},
-    "01-telefon": {"badge": "Разбор 1", "kicker": "Что сказать, когда…", "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "семейный договор"]},
-    "02-podrostok": {"badge": "Разбор 2", "kicker": "Что сказать, когда…", "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "как извиниться"]},
-    "03-uroki": {"badge": "Разбор 3", "kicker": "Что сказать, когда…", "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "стоп-приём"]},
-    "zz-test": {"badge": "Разбор", "kicker": "Что сказать, когда…", "pills": ["<b>15</b> фраз", "план на <b>7</b> дней"],
-                "no": "Сколько можно сидеть в телефоне!", "yes": "Вижу, игра интересная. Через 10 минут выключаем."},
+    "00-lead-magnet": {"badge": "Бесплатно", "img": "angel-left",
+                       "pills": ["<b>10</b> готовых фраз", "примеры диалогов", "для детей 5–16 лет"]},
+    "01-telefon": {"badge": "Разбор 1", "img": "angel-right",
+                   "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "семейный договор"],
+                   "no": "Сколько можно сидеть в телефоне!",
+                   "yes": "Вижу, интересно. Через 10 минут выключаем — поставишь таймер?"},
+    "02-podrostok": {"badge": "Разбор 2", "img": "angel-left",
+                     "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "как извиниться"],
+                     "no": "Как ты со мной разговариваешь?!",
+                     "yes": "Стоп. Таким тоном я не разговариваю. Вернёмся позже."},
+    "03-uroki": {"badge": "Разбор 3", "img": "angel-right", "gray": True,
+                 "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "стоп-приём"],
+                 "no": "Сколько можно сидеть над одним примером!",
+                 "yes": "Отложим этот пример, сделаем следующий и вернёмся."},
 }
-BRAND_LINE = "«Что сказать, когда…»<br>Готовые фразы и план на неделю<br>для трудных ситуаций с детьми"
 
 
 def split_title(md_text: str):
-    """Возвращает (заголовок без префикса, подзаголовок, остальной текст)."""
+    """Возвращает (заголовок без «Что сказать, когда…», подзаголовок, остальной текст)."""
     lines = md_text.strip().splitlines()
     title, subtitle, start = "", "", 0
     for i, ln in enumerate(lines):
@@ -43,12 +53,11 @@ def split_title(md_text: str):
             title = ln[2:].strip()
             start = i + 1
             break
-    # первая непустая строка после заголовка, не являющаяся заголовком, — подзаголовок
     for j in range(start, len(lines)):
         s = lines[j].strip()
         if not s:
             continue
-        if not s.startswith("#"):
+        if not s.startswith("#") and not s.startswith(">"):
             subtitle = s.strip("*_ ")
             start = j + 1
         break
@@ -57,7 +66,6 @@ def split_title(md_text: str):
 
 
 def sections(html_body: str):
-    """Делит HTML на блоки по <h2>, возвращает список (заголовок_текст, html)."""
     parts = re.split(r"(?=<h2[ >])", html_body)
     out = []
     for p in parts:
@@ -67,11 +75,9 @@ def sections(html_body: str):
 
 
 def wrap_h3_blocks(block: str, cls_for):
-    """Оборачивает каждый h3-подраздел внутри блока в <div class=...>."""
     pieces = re.split(r"(?=<h3[ >])", block)
-    head, rest = pieces[0], pieces[1:]
-    out = [head]
-    for p in rest:
+    out = [pieces[0]]
+    for p in pieces[1:]:
         m = re.match(r"<h3[^>]*>(.*?)</h3>", p, re.S)
         cls = cls_for(re.sub("<[^>]+>", "", m.group(1)).lower()) if m else None
         out.append(f'<div class="{cls}">{p}</div>' if cls else p)
@@ -89,7 +95,6 @@ def light_cls(t: str):
 
 
 def enhance(body: str) -> str:
-    # выноски: «> **Важно.**» — тёплые, остальные — шалфей
     body = re.sub(r"<blockquote>\s*<p><strong>(Важно|Осторожно|Внимание)",
                   r'<blockquote class="warn"><p><strong>\1', body)
     out = []
@@ -100,7 +105,8 @@ def enhance(body: str) -> str:
         elif t.startswith("план на"):
             block = wrap_h3_blocks(block, lambda x: "day" if x.startswith("день") else None)
         elif t.startswith("шпаргалка"):
-            block = f'<section class="cheat">{block}<p class="cheat-note">Распечатайте эту страницу и повесьте на видное место.</p></section>'
+            block = (f'<section class="cheat">{block}'
+                     '<p class="cheat-note">Распечатайте эту страницу и повесьте на видное место.</p></section>')
         elif t.startswith("об авторе"):
             block = f'<section class="about">{block}</section>'
         elif t.startswith("если не помогло") or t.startswith("когда фраз недостаточно"):
@@ -112,29 +118,33 @@ def enhance(body: str) -> str:
 def build_html(slug: str) -> str:
     md_text = (GUIDES / f"{slug}.md").read_text(encoding="utf-8")
     title, subtitle, rest = split_title(md_text)
-    # дисклеймер: последний абзац, начинающийся с «Материал носит» / «Дисклеймер», — мелким шрифтом
     body = markdown.markdown(rest, extensions=["tables", "sane_lists", "attr_list"])
     body = re.sub(r"<p>(<em>|<strong>)?(Дисклеймер|Материал|Этот материал)((?:(?!<p>).)*?)</p>\s*$",
                   r'<p class="disclaimer">\1\2\3</p>', body, flags=re.S)
     body = enhance(body)
-    meta = META.get(slug, {"badge": "Разбор", "kicker": "Что сказать, когда…", "pills": []})
+    meta = META.get(slug, {"badge": "Разбор", "img": "angel-left", "pills": []})
+    img_src = (ROOT / "site" / "img" / f"{meta['img']}.jpg").as_uri()
     pills = "".join(f'<span class="pill">{p}</span>' for p in meta["pills"])
     bubbles = ""
     if meta.get("no") and meta.get("yes"):
-        bubbles = (f'<div class="bubbles"><div class="bubble no">{html.escape(meta["no"])}</div>'
+        bubbles = (f'<div class="bubbles"><div class="bubble">{html.escape(meta["no"])}</div>'
                    f'<div class="bubble yes">{html.escape(meta["yes"])}</div></div>')
+    logo = ('<div class="logo">Что сказать,<span class="when">когда…</span></div>'
+            if slug != "00-lead-magnet" else '<div class="logo">Бесплатно<span class="when">от автора</span></div>')
+    gray = " g" if meta.get("gray") else ""
     cover = f"""
-<section class="cover"><div class="blob1"></div><div class="blob2"></div>
- <div class="inner">
-  <span class="badge">{meta['badge']}</span>
-  <div class="kicker">{html.escape(meta['kicker'])}</div>
+<section class="cover"><div class="inner">
+  <span class="badge">{html.escape(meta['badge'])}</span>
+  {logo}
+  <div class="archimg{gray}"><img src="{img_src}" alt=""></div>
   <div class="title">{html.escape(title)}</div>
   <div class="subtitle">{html.escape(subtitle)}</div>
   {bubbles}
-  <div class="bottom"><div class="promise">{pills}</div><div class="brand">{BRAND_LINE}</div></div>
- </div></section>"""
+  <div class="bottom">{pills}</div>
+</div></section>"""
     return f"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
-<title>{html.escape(meta['kicker'] + ' ' + title)}</title><style>{CSS}</style></head>
+<title>Что сказать, когда… {html.escape(title)}</title>
+<link href="{FONTS}" rel="stylesheet"><style>{CSS}</style></head>
 <body>{cover}<main>{body}</main></body></html>"""
 
 
@@ -145,10 +155,11 @@ const { chromium } = require('playwright');
   const browser = await chromium.launch();
   const page = await browser.newPage();
   for (const j of jobs) {
-    await page.goto('file://' + j.html, { waitUntil: 'load' });
+    await page.goto('file://' + j.html, { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.fonts.ready);
     await page.pdf({ path: j.pdf, format: 'A4', printBackground: true, preferCSSPageSize: true,
       displayHeaderFooter: true, headerTemplate: '<span></span>',
-      footerTemplate: '<div style="width:100%;font-size:8px;color:#8a9395;padding:0 17mm;display:flex;justify-content:space-between;font-family:Inter,sans-serif"><span>«Что сказать, когда…»</span><span class="pageNumber"></span></div>' });
+      footerTemplate: '<div style="width:100%;font-size:8px;color:#8a8380;padding:0 17mm;display:flex;justify-content:space-between;font-family:Montserrat,sans-serif"><span>«Что сказать, когда…»</span><span class="pageNumber"></span></div>' });
     await page.setViewportSize({ width: 794, height: 1123 });
     await page.screenshot({ path: j.png, clip: { x: 0, y: 0, width: 794, height: 1123 } });
   }
@@ -164,7 +175,8 @@ def main(slugs):
     for slug in slugs:
         h = DIST / f"{slug}.html"
         h.write_text(build_html(slug), encoding="utf-8")
-        jobs.append({"html": str(h), "pdf": str(DIST / f"{slug}.pdf"), "png": str(DIST / "covers" / f"{slug}.png")})
+        jobs.append({"html": str(h), "pdf": str(DIST / f"{slug}.pdf"),
+                     "png": str(DIST / "covers" / f"{slug}.png")})
     js = DIST / "_render.cjs"
     js.write_text(RENDER_JS, encoding="utf-8")
     subprocess.run(["node", str(js), json.dumps(jobs)], check=True)
@@ -178,5 +190,5 @@ def main(slugs):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    slugs = args or sorted(p.stem for p in GUIDES.glob("*.md"))
+    slugs = args or sorted(p.stem for p in GUIDES.glob("0*.md"))
     main(slugs)
