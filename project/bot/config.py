@@ -33,6 +33,7 @@ class Config:
     owner_id: int
     pay_links: dict[str, str] = field(default_factory=dict)   # telefon/podrostok/uroki/nabor -> url
     consult_link: str = ""
+    upgrade_link: str = ""   # доплата до набора для купивших один разбор (PAY_LINK_UPGRADE)
     author_contact: str = ""
     policy_url: str = POLICY_PLACEHOLDER
     project_name: str = "Что сказать, когда…"
@@ -162,6 +163,7 @@ def load_config(env: Mapping[str, str] | None = None) -> Config:
         owner_id=owner_id,
         pay_links=pay_links,
         consult_link=_link(env, "CONSULT_LINK"),
+        upgrade_link=_link(env, "PAY_LINK_UPGRADE"),
         author_contact=(env.get("AUTHOR_CONTACT") or "").strip(),
         policy_url=policy_url,
         project_name=(env.get("PROJECT_NAME") or "").strip() or "Что сказать, когда…",

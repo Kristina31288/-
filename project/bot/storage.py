@@ -4,6 +4,10 @@
 - users: Telegram user_id, имя из профиля Telegram, дата согласия на обработку ПДн,
   согласие на рассылку (и его дата).
 - purchases: что и когда выдано пользователю.
+- scheduled_messages: очередь сообщений автоцепочки и «Как прошла неделя?»
+  (вид, когда отправить, отправлено/отменено). Без текстов.
+- followup_state: отписка от советов, отметка «заблокировал бота», время последнего
+  срабатывания кризисного детектора (без текста), выбранная ситуация.
 - dialog_log: вопросы к ИИ-помощнику и ответы, хранятся DIALOG_LOG_DAYS дней
   (для разбора спорных случаев). Тексты кризисных сообщений НЕ сохраняются —
   только отметка, что сработал кризисный сценарий.
@@ -46,6 +50,26 @@ CREATE TABLE IF NOT EXISTS dialog_log (
 );
 CREATE INDEX IF NOT EXISTS dialog_log_user ON dialog_log(user_id);
 CREATE INDEX IF NOT EXISTS dialog_log_created ON dialog_log(created_at);
+CREATE TABLE IF NOT EXISTS scheduled_messages (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL,
+    kind          TEXT NOT NULL,        -- tip1 | tip2 | tip3 | tip3_repeat | week
+    due_at        TEXT NOT NULL,
+    sent_at       TEXT,
+    cancelled     INTEGER NOT NULL DEFAULT 0,
+    cancel_reason TEXT,
+    ref           INTEGER,              -- для week: id покупки
+    created_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS scheduled_due ON scheduled_messages(sent_at, cancelled, due_at);
+CREATE INDEX IF NOT EXISTS scheduled_user ON scheduled_messages(user_id);
+CREATE TABLE IF NOT EXISTS followup_state (
+    user_id        INTEGER PRIMARY KEY,
+    tips_off_at    TEXT,                -- /stop_tips или кнопка «Не присылать советы»
+    blocked_at     TEXT,                -- пользователь заблокировал бота
+    crisis_at      TEXT,                -- последняя отметка кризисного детектора (без текста)
+    chosen_product TEXT                 -- ситуация, выбранная в сообщении 3 цепочки
+);
 """
 
 
@@ -69,6 +93,29 @@ class User:
     @property
     def has_consent(self) -> bool:
         return self.pd_consent_at is not None
+
+
+@dataclass(frozen=True)
+class Scheduled:
+    id: int
+    user_id: int
+    kind: str
+    due_at: datetime
+    sent_at: str | None
+    cancelled: bool
+    ref: int | None
+
+
+@dataclass(frozen=True)
+class FollowupState:
+    tips_off: bool = False
+    blocked: bool = False
+    crisis_at: datetime | None = None
+    chosen_product: str | None = None
+
+
+def _parse(value: str | None) -> datetime | None:
+    return datetime.fromisoformat(value) if value else None
 
 
 @dataclass(frozen=True)
@@ -171,6 +218,20 @@ class Storage:
             return False
         return True
 
+    def get_purchase(self, purchase_id: int) -> Purchase | None:
+        with self._lock:
+            r = self._conn.execute("SELECT * FROM purchases WHERE id = ?", (purchase_id,)).fetchone()
+        if r is None:
+            return None
+        return Purchase(r["id"], r["user_id"], r["product"], r["source"], r["external_id"],
+                        r["granted_at"])
+
+    def last_purchase_id(self, user_id: int) -> int | None:
+        with self._lock:
+            r = self._conn.execute("SELECT MAX(id) FROM purchases WHERE user_id = ?",
+                                   (user_id,)).fetchone()
+        return r[0]
+
     def list_purchases(self, user_id: int) -> list[Purchase]:
         with self._lock:
             rows = self._conn.execute(
@@ -202,6 +263,116 @@ class Storage:
             cur = self._conn.execute("DELETE FROM dialog_log WHERE created_at < ?", (border,))
         return cur.rowcount
 
+    # --- очередь отложенных сообщений ------------------------------------
+    def schedule_message(self, user_id: int, kind: str, due_at: datetime, *, once: bool = True,
+                         ref: int | None = None, now: datetime | None = None) -> bool:
+        """Ставит сообщение в очередь. once=True — не ставит, если такое уже было когда-либо
+        (отправлено, отменено или ждёт); once=False — не ставит, только если такое уже ждёт."""
+        now = now or utcnow()
+        cond = "" if once else " AND sent_at IS NULL AND cancelled = 0"
+        with self._lock, self._conn:
+            exists = self._conn.execute(
+                f"SELECT 1 FROM scheduled_messages WHERE user_id = ? AND kind = ?{cond}",
+                (user_id, kind)).fetchone()
+            if exists:
+                return False
+            self._conn.execute(
+                "INSERT INTO scheduled_messages(user_id, kind, due_at, ref, created_at) "
+                "VALUES (?, ?, ?, ?, ?)", (user_id, kind, _iso(due_at), ref, _iso(now)))
+        return True
+
+    @staticmethod
+    def _scheduled(r: sqlite3.Row) -> Scheduled:
+        return Scheduled(r["id"], r["user_id"], r["kind"], datetime.fromisoformat(r["due_at"]),
+                         r["sent_at"], bool(r["cancelled"]), r["ref"])
+
+    def due_messages(self, now: datetime | None = None, limit: int = 100) -> list[Scheduled]:
+        now = now or utcnow()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM scheduled_messages WHERE sent_at IS NULL AND cancelled = 0 "
+                "AND due_at <= ? ORDER BY due_at, id LIMIT ?", (_iso(now), limit)).fetchall()
+        return [self._scheduled(r) for r in rows]
+
+    def scheduled_for(self, user_id: int) -> list[Scheduled]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM scheduled_messages WHERE user_id = ? ORDER BY id", (user_id,)
+            ).fetchall()
+        return [self._scheduled(r) for r in rows]
+
+    def pending_for(self, user_id: int) -> list[Scheduled]:
+        return [m for m in self.scheduled_for(user_id) if m.sent_at is None and not m.cancelled]
+
+    def mark_sent(self, message_id: int, now: datetime | None = None) -> None:
+        now = now or utcnow()
+        with self._lock, self._conn:
+            self._conn.execute("UPDATE scheduled_messages SET sent_at = ? WHERE id = ?",
+                               (_iso(now), message_id))
+
+    def cancel_message(self, message_id: int, reason: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE scheduled_messages SET cancelled = 1, cancel_reason = ? WHERE id = ?",
+                (reason, message_id))
+
+    def reschedule(self, message_id: int, due_at: datetime) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("UPDATE scheduled_messages SET due_at = ? WHERE id = ?",
+                               (_iso(due_at), message_id))
+
+    def cancel_pending(self, user_id: int, kinds: tuple[str, ...] | None = None,
+                       reason: str = "", before: datetime | None = None) -> int:
+        """Отменяет ждущие сообщения пользователя (все или только kinds; до before — если задано)."""
+        sql = ("UPDATE scheduled_messages SET cancelled = 1, cancel_reason = ? "
+               "WHERE user_id = ? AND sent_at IS NULL AND cancelled = 0")
+        args: list = [reason, user_id]
+        if kinds:
+            sql += f" AND kind IN ({','.join('?' * len(kinds))})"
+            args += list(kinds)
+        if before is not None:
+            sql += " AND due_at < ?"
+            args.append(_iso(before))
+        with self._lock, self._conn:
+            return self._conn.execute(sql, args).rowcount
+
+    # --- состояние цепочки (отписка, блокировка, кризис) ------------------
+    def followup_state(self, user_id: int) -> FollowupState:
+        with self._lock:
+            r = self._conn.execute("SELECT * FROM followup_state WHERE user_id = ?",
+                                   (user_id,)).fetchone()
+        if r is None:
+            return FollowupState()
+        return FollowupState(tips_off=r["tips_off_at"] is not None,
+                             blocked=r["blocked_at"] is not None,
+                             crisis_at=_parse(r["crisis_at"]),
+                             chosen_product=r["chosen_product"])
+
+    def _set_state(self, user_id: int, column: str, value: str | None) -> None:
+        assert column in {"tips_off_at", "blocked_at", "crisis_at", "chosen_product"}
+        with self._lock, self._conn:
+            self._conn.execute(
+                f"INSERT INTO followup_state(user_id, {column}) VALUES (?, ?) "
+                f"ON CONFLICT(user_id) DO UPDATE SET {column} = excluded.{column}",
+                (user_id, value))
+
+    def set_tips_off(self, user_id: int, now: datetime | None = None) -> None:
+        self._set_state(user_id, "tips_off_at", _iso(now or utcnow()))
+
+    def mark_blocked(self, user_id: int, now: datetime | None = None) -> None:
+        self._set_state(user_id, "blocked_at", _iso(now or utcnow()))
+
+    def clear_blocked(self, user_id: int) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("UPDATE followup_state SET blocked_at = NULL WHERE user_id = ?",
+                               (user_id,))
+
+    def mark_crisis(self, user_id: int, now: datetime | None = None) -> None:
+        self._set_state(user_id, "crisis_at", _iso(now or utcnow()))
+
+    def set_chosen_product(self, user_id: int, product: str) -> None:
+        self._set_state(user_id, "chosen_product", product)
+
     # --- удаление по запросу (/delete_me) --------------------------------
     def delete_user(self, user_id: int) -> bool:
         """Удаляет все данные пользователя. True — если что-то было удалено."""
@@ -210,4 +381,8 @@ class Storage:
             n += self._conn.execute("DELETE FROM dialog_log WHERE user_id = ?", (user_id,)).rowcount
             n += self._conn.execute("DELETE FROM purchases WHERE user_id = ?", (user_id,)).rowcount
             n += self._conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,)).rowcount
+            n += self._conn.execute("DELETE FROM scheduled_messages WHERE user_id = ?",
+                                    (user_id,)).rowcount
+            n += self._conn.execute("DELETE FROM followup_state WHERE user_id = ?",
+                                    (user_id,)).rowcount
         return n > 0
