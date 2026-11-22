@@ -22,6 +22,7 @@ from aiogram.types import (
 )
 
 import catalog
+import followup
 import safety
 import texts
 from config import Config
@@ -80,6 +81,15 @@ def pay_kb(link: str, price_text: str) -> InlineKeyboardMarkup | None:
         [InlineKeyboardButton(text=texts.PAY_BUTTON.format(price=price_text), url=link)]])
 
 
+def to_markup(rows: list[list[followup.Button]]) -> InlineKeyboardMarkup | None:
+    if not rows:
+        return None
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=b.text, url=b.url) if b.url
+         else InlineKeyboardButton(text=b.text, callback_data=b.callback) for b in row]
+        for row in rows])
+
+
 def user_label(u: TgUser | None) -> str:
     if u is None:
         return "?"
@@ -107,6 +117,17 @@ async def send_product_files(bot: Bot, config: Config, user_id: int, product: ca
     return missing
 
 
+async def send_outgoing(bot: Bot, config: Config, user_id: int,
+                        outs: list[followup.Outgoing]) -> None:
+    """Отправляет сообщения, собранные в followup.py. Ошибки Telegram пробрасываются."""
+    for o in outs:
+        if o.send_lead_magnet:
+            lead = Path(config.files_dir) / config.lead_magnet_file
+            if lead.is_file():
+                await bot.send_document(user_id, FSInputFile(lead))
+        await bot.send_message(user_id, o.text, reply_markup=to_markup(o.rows))
+
+
 def build_router(deps: Deps) -> Router:
     router = Router(name="main")
     cfg, db, dctx = deps.config, deps.storage, deps.dialog
@@ -117,6 +138,9 @@ def build_router(deps: Deps) -> Router:
     async def apply_decision(message: Message, d: Decision) -> None:
         uid = message.from_user.id
         await message.answer(d.reply, reply_markup=main_menu())
+        if d.kind is Kind.CRISIS:
+            # отметка без текста: продающие сообщения цепочки — стоп на 7 дней
+            followup.on_crisis(db, uid)
         if cfg.log_dialogs and db.has_consent(uid):
             if d.kind is Kind.CRISIS:
                 db.log_dialog(uid, "event", "сработал кризисный сценарий (текст не сохраняется)")
@@ -134,6 +158,7 @@ def build_router(deps: Deps) -> Router:
     @router.message(CommandStart())
     async def start(message: Message, state: FSMContext) -> None:
         await state.clear()
+        db.clear_blocked(message.from_user.id)   # вернулся после блокировки
         if db.has_consent(message.from_user.id):
             await message.answer(texts.MENU_HINT, reply_markup=main_menu())
             return
@@ -153,6 +178,8 @@ def build_router(deps: Deps) -> Router:
         lead = Path(cfg.files_dir) / cfg.lead_magnet_file
         if lead.is_file():
             await cb.bot.send_document(u.id, FSInputFile(lead))
+            # цепочка советов; уйдёт только при согласии на рассылку (проверка при отправке)
+            followup.start_chain(db, u.id)
         else:
             await cb.bot.send_message(u.id, texts.LEAD_MAGNET_MISSING)
             await notify_owner(cb.bot, cfg, f"Нет файла лид-магнита {lead}. Пользователь {user_label(u)}.")
@@ -214,6 +241,91 @@ def build_router(deps: Deps) -> Router:
             return
         await message.answer(texts.MENU_HINT, reply_markup=main_menu())
 
+    # --- автоцепочка и «Как прошла неделя?» (followup.py) ----------------------
+    def sales_paused(uid: int) -> bool:
+        return dctx.crisis_cooldown.active(uid) or followup.sales_paused(db, uid)
+
+    async def do_stop_tips(bot: Bot, uid: int) -> None:
+        if db.get_user(uid) is not None:
+            followup.stop_tips(db, uid)
+        await bot.send_message(uid, texts.TIPS_STOPPED)
+
+    @router.message(Command("stop_tips"))
+    async def stop_tips_cmd(message: Message) -> None:
+        await do_stop_tips(message.bot, message.from_user.id)
+
+    @router.callback_query(F.data == "fu:stop")
+    async def stop_tips_cb(cb: CallbackQuery) -> None:
+        await cb.answer()
+        if isinstance(cb.message, Message):
+            await cb.message.edit_reply_markup(reply_markup=None)
+        await do_stop_tips(cb.bot, cb.from_user.id)
+
+    @router.callback_query(F.data.startswith("fu:sit:"))
+    async def situation(cb: CallbackQuery) -> None:
+        await cb.answer()
+        uid, key = cb.from_user.id, cb.data.split(":", 2)[2]
+        if key not in followup.GUIDE_KEYS:
+            return
+        if not db.has_consent(uid):
+            await cb.bot.send_message(uid, texts.NEED_CONSENT)
+            return
+        if sales_paused(uid):
+            await cb.bot.send_message(uid, safety.CRISIS_REPLY)
+            return
+        db.set_chosen_product(uid, key)
+        await send_outgoing(cb.bot, cfg, uid,
+                            followup.build_card(cfg, key, followup.owned_guides(db, uid)))
+
+    @router.callback_query(F.data.startswith("fu:wk:"))
+    async def week_answer(cb: CallbackQuery) -> None:
+        await cb.answer()
+        parts = cb.data.split(":")
+        if len(parts) != 4 or parts[2] not in followup.WEEK_ANSWERS or not parts[3].isdigit():
+            return
+        uid, answer, pid = cb.from_user.id, parts[2], int(parts[3])
+        if not db.has_consent(uid):
+            await cb.bot.send_message(uid, texts.NEED_CONSENT)
+            return
+        if isinstance(cb.message, Message):
+            await cb.message.edit_reply_markup(reply_markup=None)
+        if sales_paused(uid) and answer != "nofit":
+            reply = texts.WEEK_CALM if answer == "calm" else safety.CRISIS_REPLY
+            await cb.bot.send_message(uid, reply)
+            return
+        await send_outgoing(cb.bot, cfg, uid, followup.build_week_answer(db, cfg, uid, answer, pid))
+
+    @router.callback_query(F.data.startswith("fu:swap:"))
+    async def swap(cb: CallbackQuery) -> None:
+        await cb.answer()
+        parts = cb.data.split(":")
+        if len(parts) != 4 or not parts[2].isdigit():
+            return
+        uid, pid, key = cb.from_user.id, int(parts[2]), parts[3]
+        if not db.has_consent(uid):
+            await cb.bot.send_message(uid, texts.NEED_CONSENT)
+            return
+        verdict = followup.check_swap(db, uid, pid, key)
+        if not verdict.ok:
+            await cb.bot.send_message(uid, verdict.reply)
+            return
+        product = catalog.PRODUCTS[key]
+        paths = catalog.files_for(product, cfg)
+        missing = [p.name for p in paths if not p.is_file()]
+        if missing:
+            await cb.bot.send_message(uid, texts.SWAP_FILE_LATER)
+            await notify_owner(cb.bot, cfg, f"Замена разбора: нет файла {', '.join(missing)} в files/. "
+                                            f"Положите файл — пользователь {user_label(cb.from_user)} "
+                                            f"сможет нажать кнопку замены снова.")
+            return
+        if not followup.record_swap(db, uid, pid, key):
+            await cb.bot.send_message(uid, texts.SWAP_ALREADY)
+            return
+        if isinstance(cb.message, Message):
+            await cb.message.edit_reply_markup(reply_markup=None)
+        await cb.bot.send_message(uid, texts.SWAP_DONE.format(title=product.title))
+        await send_product_files(cb.bot, cfg, uid, product)
+
     # --- команды владелицы -----------------------------------------------------
     @router.message(Command("give"))
     async def give(message: Message, command: CommandObject) -> None:
@@ -241,6 +353,7 @@ def build_router(deps: Deps) -> Router:
             await message.answer("Нет файлов в папке files/: " + ", ".join(missing) + ". Покупка не записана.")
             return
         db.add_purchase(user_id, product.key, "manual")
+        followup.on_purchase(db, user_id, db.last_purchase_id(user_id))
         await message.bot.send_message(user_id, texts.FEEDBACK_ASK)
         await message.answer(f"Выдано: {product.title} → {user_id}")
 

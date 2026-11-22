@@ -14,6 +14,7 @@ from config import BASE_DIR, ConfigError, load_config, load_dotenv_file
 from dialog import DialogContext
 from handlers import Deps, build_router
 from llm import make_assistant
+from scheduler import scheduler_loop
 from storage import Storage
 
 log = logging.getLogger("bot")
@@ -61,15 +62,19 @@ async def run() -> None:
         BotCommand(command="start", description="Начать"),
         BotCommand(command="menu", description="Меню"),
         BotCommand(command="news_off", description="Отписаться от новостей"),
+        BotCommand(command="stop_tips", description="Не присылать советы"),
         BotCommand(command="delete_me", description="Удалить мои данные"),
         BotCommand(command="help", description="Помощь"),
     ])
 
     purge_task = asyncio.create_task(purge_loop(storage, config.dialog_log_days))
+    # очередь отложенных сообщений (цепочка советов, «Как прошла неделя?») — раз в минуту
+    scheduler_task = asyncio.create_task(scheduler_loop(bot, storage, config))
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         purge_task.cancel()
+        scheduler_task.cancel()
         storage.close()
         await bot.session.close()
 
