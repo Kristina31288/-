@@ -41,6 +41,8 @@ def test_faq_has_at_least_15_items(faq):
     ("Вы человек?", "is_ai"),
     ("Купила на Wildberries", "wb"),
     ("Правда, что фразы проверены подростком?", "teen_checked"),
+    ("В каком колледже учится дочь автора?", "daughter_private"),
+    ("Из какого города дочка автора?", "daughter_private"),
     ("Это гарантирует результат?", "result"),
     ("Есть скидка?", "discount"),
     ("Промокод есть?", "discount"),
@@ -98,6 +100,13 @@ def test_faq_has_no_consultation_or_author_handoff():
     for banned in ("консультац", "передам вопрос автору", "позовите автора", "написать автору",
                    "живой человек", "вернём деньги", "7 дней после покупки"):
         assert banned not in raw, banned
+
+
+def test_daughter_private_data_never_disclosed(faq):
+    kb = (BOT_DIR / "knowledge.md").read_text(encoding="utf-8")
+    assert "студентка педагогического колледжа" in kb and "Это личная информация" in kb
+    a = {i.id: i for i in faq.items}["daughter_private"].answer
+    assert a.startswith("Это личная информация")
 
 
 def test_faq_who_never_calls_author_just_psychologist(faq):
