@@ -40,6 +40,7 @@ def test_faq_has_at_least_15_items(faq):
     ("Зачем платить, если в интернете всё есть", "free_internet"),
     ("Вы человек?", "is_ai"),
     ("Купила на Wildberries", "wb"),
+    ("Правда, что фразы проверены подростком?", "teen_checked"),
     ("Это гарантирует результат?", "result"),
     ("Есть скидка?", "discount"),
     ("Промокод есть?", "discount"),
@@ -115,7 +116,7 @@ def test_faq_json_is_valid_and_has_fallback():
 def test_knowledge_has_products_and_15_questions():
     kb = (BOT_DIR / "knowledge.md").read_text(encoding="utf-8")
     for s in ("299 ₽", "690 ₽", "8-800-2000-122", "7 дней", "Виктория", "Карта спокойного вечера",
-              "до 10 рабочих дней", "Wildberries"):
+              "до 10 рабочих дней", "Wildberries", "Проверено подростком", "Кристина Плетнева"):
         assert s in kb
     assert "1 500" not in kb and "Консультация автора" not in kb
     assert "15." in kb
