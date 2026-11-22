@@ -2,7 +2,7 @@
 import pytest
 
 import safety
-from safety import Cooldown, RateLimiter, detect_crisis, detect_handoff
+from safety import Cooldown, RateLimiter, detect_crisis, detect_intent
 
 CRISIS_POSITIVE = [
     # суицидальные высказывания, разные формы
@@ -88,41 +88,59 @@ def test_crisis_reply_has_helplines_and_no_sales():
         assert word not in t.lower()
 
 
-HANDOFF_POSITIVE = [
+# Намерения клиента: владелице «вживую» ничего не передаётся — на всё отвечает Виктория (support.py).
+INTENT_POSITIVE = [
     ("Хочу поговорить с живым человеком", "human"),
     ("позовите автора", "human"),
     ("соедините с оператором", "human"),
     ("можно не с ботом?", "human"),
     ("Хочу пожаловаться", "complaint"),
     ("у меня жалоба", "complaint"),
+    ("это обман", "complaint"),
+    ("вы мошенники", "complaint"),
     ("Верните деньги!", "refund"),
     ("хочу вернуть деньги", "refund"),
     ("как оформить возврат", "refund"),
-    ("оплатила, но файл не пришёл", "refund"),
-    ("не пришел файл", "refund"),
-    ("это обман", "anger"),
-    ("вы мошенники", "anger"),
+    ("бл*, верните деньги", "refund"),           # возврат важнее мата
+    ("оплатила, но файл не пришёл", "file_missing"),
+    ("не пришел файл", "file_missing"),
+    ("файл не открывается", "file_missing"),
+    ("не могу открыть файл", "file_missing"),
+    ("разбор не подошёл", "nofit"),
+    ("хочу другой разбор", "nofit"),
+    ("можно замену?", "nofit"),
+    ("да пошли вы на х*й", "profanity"),
+    ("бля", "profanity"),
 ]
 
-HANDOFF_NEGATIVE = [
+INTENT_NEGATIVE = [
     "Сколько стоит разбор?",
     "Какой разбор выбрать для 9 лет?",
     "Подросток потерял ко мне авторитет",
     "Сын не отлипает от телефона",
     "В семье 4 человека",
+    "Кто автор разборов?",
+    "Подросток не открывается мне",
+    "Хочу заменить телефон на книги",
 ]
 
 
-@pytest.mark.parametrize("text,reason", HANDOFF_POSITIVE)
-def test_handoff_detected(text, reason):
-    r = detect_handoff(text)
-    assert r.needed, text
-    assert r.reason == reason, (text, r)
+@pytest.mark.parametrize("text,intent", INTENT_POSITIVE)
+def test_intent_detected(text, intent):
+    r = detect_intent(text)
+    assert r.found, text
+    assert r.intent == intent, (text, r)
 
 
-@pytest.mark.parametrize("text", HANDOFF_NEGATIVE)
-def test_handoff_not_detected(text):
-    assert not detect_handoff(text).needed, (text, detect_handoff(text))
+@pytest.mark.parametrize("text", INTENT_NEGATIVE)
+def test_intent_not_detected(text):
+    assert not detect_intent(text).found, (text, detect_intent(text))
+
+
+def test_crisis_reply_unchanged():
+    """Кризисный текст фиксирован решением владелицы — не меняется."""
+    assert safety.CRISIS_REPLY.startswith("Мне жаль, что вам сейчас так тяжело.")
+    assert "не оставайтесь с этим одни" in safety.CRISIS_REPLY.lower()
 
 
 def test_length_helpers():

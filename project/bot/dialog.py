@@ -87,7 +87,7 @@ def _introduce(ctx: DialogContext, user_id: int, text: str) -> str:
     if user_id in ctx.introduced:
         return text
     ctx.introduced.add(user_id)
-    if texts.ASSISTANT_NAME in text:
+    if texts.VICTORIA_INTRO in text:
         return text
     return texts.victoria_intro() + "\n\n" + text
 

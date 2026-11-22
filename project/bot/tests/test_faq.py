@@ -29,12 +29,20 @@ def test_faq_has_at_least_15_items(faq):
     ("Что внутри разбора?", "what_is"),
     ("Как оплатить?", "pay"),
     ("Когда придёт файл после оплаты?", "delivery"),
-    ("А если не подойдёт?", "refund_rule"),
+    ("А если не подойдёт?", "swap"),
     ("Вы психолог?", "who"),
+    ("Какие у вас есть разборы?", "catalog"),
+    ("Как открыть pdf?", "open_pdf"),
+    ("Чем открыть файл", "open_pdf"),
+    ("Сыну 13, какой разбор?", "which"),
+    ("Дорого", "expensive"),
+    ("Я подумаю", "think"),
+    ("Зачем платить, если в интернете всё есть", "free_internet"),
+    ("Вы человек?", "is_ai"),
+    ("Купила на Wildberries", "wb"),
     ("Это гарантирует результат?", "result"),
     ("Есть скидка?", "discount"),
     ("Промокод есть?", "discount"),
-    ("Хочу записаться на консультацию", "consult"),
     ("Ты бот?", "is_ai"),
     ("Можно распечатать?", "format"),
     ("Какие данные вы храните?", "privacy"),
@@ -50,15 +58,17 @@ def test_faq_match(faq, question, expected_id):
 def test_faq_unknown_returns_fallback(faq):
     text, found = faq.answer("какая погода на Марсе")
     assert not found
-    assert "передам" in text
+    assert text.startswith("Этого в моей базе нет")
+    assert "автор" not in text.lower()
 
 
 def test_faq_prices_match_brand(faq):
     by_id = {i.id: i for i in faq.items}
     price = by_id["price"].answer
-    for p in ("299 ₽", "690 ₽", "1 500 ₽"):
+    for p in ("299 ₽", "690 ₽"):
         assert p in price
-    assert "7 дней" in by_id["refund_rule"].answer
+    assert "1 500" not in price
+    assert "подберём другой" in by_id["swap"].answer
 
 
 def test_faq_answers_do_not_promise_or_mislabel(faq):
@@ -69,12 +79,30 @@ def test_faq_answers_do_not_promise_or_mislabel(faq):
         assert "осталось" not in low
 
 
-def test_faq_assistant_handoff_flag():
+def test_faq_assistant_unknown_flag_and_no_sell_answers():
     a = FaqAssistant(FaqBase.load())
     r = asyncio.run(a.answer("сколько стоит"))
-    assert not r.handoff and "299" in r.text
+    assert not r.unknown and "299" in r.text
     r = asyncio.run(a.answer("ываыва"))
-    assert r.handoff
+    assert r.unknown
+    # без продаж (после кризиса / no_sell): ни цен, ни оплаты
+    for q in ("сколько стоит", "какой разбор выбрать", "как оплатить", "есть скидка", "дорого",
+              "что в наборе", "какие есть разборы"):
+        r = asyncio.run(a.answer(q, no_sales=True))
+        assert "₽" not in r.text and "оплатить" not in r.text.lower(), (q, r.text)
+
+
+def test_faq_has_no_consultation_or_author_handoff():
+    raw = DEFAULT_FAQ_PATH.read_text(encoding="utf-8").lower()
+    for banned in ("консультац", "передам вопрос автору", "позовите автора", "написать автору",
+                   "живой человек", "вернём деньги", "7 дней после покупки"):
+        assert banned not in raw, banned
+
+
+def test_faq_who_never_calls_author_just_psychologist(faq):
+    who = {i.id: i for i in faq.items}["who"].answer.lower()
+    assert "психолог по образованию" in who
+    assert "не детский психолог" in who
 
 
 def test_faq_json_is_valid_and_has_fallback():
@@ -86,6 +114,8 @@ def test_faq_json_is_valid_and_has_fallback():
 
 def test_knowledge_has_products_and_15_questions():
     kb = (BOT_DIR / "knowledge.md").read_text(encoding="utf-8")
-    for s in ("299 ₽", "690 ₽", "1 500 ₽", "8-800-2000-122", "7 дней"):
+    for s in ("299 ₽", "690 ₽", "8-800-2000-122", "7 дней", "Виктория", "Карта спокойного вечера",
+              "до 10 рабочих дней", "Wildberries"):
         assert s in kb
+    assert "1 500" not in kb and "Консультация автора" not in kb
     assert "15." in kb
