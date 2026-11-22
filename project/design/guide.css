@@ -1,0 +1,83 @@
+/* Вёрстка PDF-разборов «Что сказать, когда…». Токены из brand.md §8 */
+@page { size: A4; margin: 18mm 17mm 20mm 17mm; }
+@page :first { margin: 0; }
+:root{
+  --paper:#FBF7F1; --card:#FFFFFF; --line:#E8E0D4;
+  --ink:#1F2A2E; --muted:#5E6B6E;
+  --sage:#2F6B5A; --sage-l:#E6F0EB;
+  --clay:#D9734E; --clay-l:#FBE9E1;
+  --green:#3C8D5A; --amber:#D69A2D; --red:#C0463A;
+}
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:"Inter",system-ui,sans-serif;font-size:10.6pt;line-height:1.55;color:var(--ink);background:#fff}
+
+/* ---------- Обложка ---------- */
+.cover{width:210mm;height:297mm;background:var(--paper);position:relative;overflow:hidden;page-break-after:always;padding:26mm 22mm}
+.cover .blob1{position:absolute;right:-60mm;top:-50mm;width:170mm;height:170mm;border-radius:50%;background:var(--sage-l)}
+.cover .blob2{position:absolute;left:-40mm;bottom:-60mm;width:150mm;height:150mm;border-radius:50%;background:var(--clay-l)}
+.cover .inner{position:relative;height:100%;display:flex;flex-direction:column}
+.cover .badge{display:inline-block;align-self:flex-start;background:var(--sage);color:#fff;font-weight:700;font-size:10pt;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:999px}
+.cover .kicker{margin-top:38mm;font-size:30pt;font-weight:700;color:var(--sage);line-height:1.1}
+.cover .title{margin-top:6mm;font-size:34pt;font-weight:700;line-height:1.12;color:var(--ink);max-width:160mm}
+.cover .subtitle{margin-top:9mm;font-size:13.5pt;color:var(--muted);max-width:140mm;line-height:1.45}
+.cover .bubbles{margin-top:16mm;display:flex;flex-direction:column;gap:5mm;max-width:150mm}
+.cover .bubble{position:relative;align-self:flex-start;background:#fff;border:1px solid var(--line);border-radius:18px 18px 18px 4px;padding:12px 18px;font-size:13pt;line-height:1.4;box-shadow:0 6px 18px rgba(31,42,46,.07)}
+.cover .bubble.no{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--clay);text-decoration-thickness:2px}
+.cover .bubble.yes{align-self:flex-end;border-radius:18px 18px 4px 18px;background:var(--sage);color:#fff;font-weight:600;border-color:var(--sage)}
+.cover .bottom{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:10mm}
+.cover .promise{display:flex;gap:4mm;flex-wrap:wrap}
+.cover .pill{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 14px;font-size:10.5pt;font-weight:600}
+.cover .pill b{color:var(--clay)}
+.cover .brand{font-size:9.5pt;color:var(--muted);text-align:right;line-height:1.4}
+
+/* ---------- Текст ---------- */
+main{padding:0}
+h1{display:none}
+h2{font-size:17pt;line-height:1.25;margin:22pt 0 8pt;color:var(--ink);page-break-after:avoid;break-after:avoid}
+h2::before{content:"";display:block;width:34px;height:4px;border-radius:2px;background:var(--clay);margin-bottom:8pt}
+h3{font-size:12.5pt;margin:14pt 0 5pt;color:var(--sage);page-break-after:avoid;break-after:avoid}
+p{margin:0 0 7pt;orphans:3;widows:3}
+li{orphans:2;widows:2}
+.about{page-break-inside:avoid;break-inside:avoid}
+.about h2{margin-top:18pt}
+ul,ol{margin:0 0 8pt;padding-left:16pt}
+li{margin:0 0 3pt}
+strong{font-weight:700}
+a{color:var(--sage)}
+hr{border:0;border-top:1px solid var(--line);margin:14pt 0}
+
+blockquote{margin:9pt 0;padding:9pt 12pt;background:var(--sage-l);border-left:4px solid var(--sage);border-radius:0 10px 10px 0;page-break-inside:avoid;break-inside:avoid}
+blockquote p:last-child{margin:0}
+blockquote.warn{background:var(--clay-l);border-left-color:var(--clay)}
+
+table{width:100%;border-collapse:separate;border-spacing:0;margin:8pt 0 10pt;font-size:9.6pt;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--sage);color:#fff;text-align:left;font-weight:600;padding:6pt 8pt}
+td{padding:6pt 8pt;border-top:1px solid var(--line);vertical-align:top}
+tr{page-break-inside:avoid;break-inside:avoid}
+tbody tr:nth-child(even) td{background:#FAF8F4}
+td:first-child{color:var(--muted)}
+td:nth-child(2){font-weight:600}
+
+/* Светофор */
+.light{border-radius:12px;padding:8pt 12pt 6pt;margin:8pt 0;border:1px solid var(--line);page-break-inside:avoid;break-inside:avoid}
+.light h3{margin-top:2pt;display:flex;align-items:center;gap:7pt}
+.light h3::before{content:"";width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.light.green{background:#EEF6F0}.light.green h3{color:var(--green)}.light.green h3::before{background:var(--green)}
+.light.amber{background:#FBF3E3}.light.amber h3{color:#A97515}.light.amber h3::before{background:var(--amber)}
+.light.red{background:#FAEAE7}.light.red h3{color:var(--red)}.light.red h3::before{background:var(--red)}
+
+/* План на 7 дней */
+.day{border:1px solid var(--line);border-radius:12px;padding:6pt 12pt 4pt;margin:7pt 0;page-break-inside:avoid;break-inside:avoid;position:relative}
+.day h3{color:var(--clay);margin-top:3pt}
+
+/* Шпаргалка */
+.cheat{page-break-before:always;break-before:page;background:var(--paper);border:2px dashed var(--sage);border-radius:16px;padding:14pt 18pt;page-break-inside:avoid;break-inside:avoid}
+.cheat h2{margin-top:0;color:var(--sage)}
+.cheat h2::before{background:var(--sage)}
+.cheat-note{font-size:9pt;color:var(--muted);margin-top:4pt}
+
+/* Финал */
+.help{background:var(--clay-l);border-radius:12px;padding:6pt 14pt 8pt;margin-top:12pt;page-break-inside:avoid;break-inside:avoid}
+.help h2{margin-top:8pt}
+.disclaimer{margin-top:16pt;font-size:8.6pt;color:var(--muted);border-top:1px solid var(--line);padding-top:8pt}
