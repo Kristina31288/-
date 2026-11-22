@@ -21,6 +21,7 @@ log = logging.getLogger("bot")
 
 CRISIS_NO_SALES_SECONDS = 24 * 3600      # сутки без продаж после кризисного сообщения
 OWNER_NOTIFY_COOLDOWN_SECONDS = 10 * 60  # не чаще раза в 10 минут на одного пользователя
+UNANSWERED_KEEP_DAYS = 35
 
 
 async def purge_loop(storage: Storage, days: int) -> None:
@@ -29,6 +30,8 @@ async def purge_loop(storage: Storage, days: int) -> None:
             n = storage.purge_old_dialogs(days)
             if n:
                 log.info("Удалено старых записей журнала: %s", n)
+            # вопросы без ответа нужны только для сводки — храним 35 дней
+            storage.purge_unanswered(UNANSWERED_KEEP_DAYS)
         except Exception:
             log.exception("Ошибка очистки журнала")
         await asyncio.sleep(24 * 3600)
@@ -44,7 +47,7 @@ async def run() -> None:
 
     storage = Storage(config.db_path)
     assistant = make_assistant(config)
-    log.info("ИИ-помощник: %s", "GigaChat" if config.llm_enabled else "ответы из faq.json (без ИИ)")
+    log.info("Виктория: %s", "GigaChat" if config.llm_enabled else "ответы из faq.json (без ИИ)")
 
     dctx = DialogContext(
         assistant=assistant,
@@ -52,6 +55,8 @@ async def run() -> None:
         limiter=safety.RateLimiter(config.rate_limit_count, config.rate_limit_window),
         crisis_cooldown=safety.Cooldown(CRISIS_NO_SALES_SECONDS),
         owner_notify_cooldown=safety.Cooldown(OWNER_NOTIFY_COOLDOWN_SECONDS),
+        storage=storage,
+        notify_owner_on_crisis=config.notify_owner_on_crisis,
     )
 
     bot = Bot(token=config.bot_token)
@@ -68,7 +73,7 @@ async def run() -> None:
     ])
 
     purge_task = asyncio.create_task(purge_loop(storage, config.dialog_log_days))
-    # очередь отложенных сообщений (цепочка советов, «Как прошла неделя?») — раз в минуту
+    # очередь отложенных сообщений (цепочка советов, «Как прошла неделя?») и сводка — раз в минуту
     scheduler_task = asyncio.create_task(scheduler_loop(bot, storage, config))
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())

@@ -1,4 +1,9 @@
-"""Обработчики Telegram (aiogram 3)."""
+"""Обработчики Telegram (aiogram 3).
+
+С клиентами общается только ИИ-помощница «Виктория». Владелица с клиентами не переписывается:
+команд «ответить пользователю» и кнопок «Написать автору» / «Консультация» нет. Всё, что
+требует её действий, приходит в еженедельной сводке (summary.py).
+"""
 from __future__ import annotations
 
 import logging
@@ -7,9 +12,8 @@ from pathlib import Path
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramAPIError
-from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
     FSInputFile,
@@ -24,6 +28,7 @@ from aiogram.types import (
 import catalog
 import followup
 import safety
+import summary
 import texts
 from config import Config
 from dialog import DialogContext, Decision, Kind, process_text
@@ -32,9 +37,8 @@ from storage import Storage
 log = logging.getLogger(__name__)
 
 
-class Flow(StatesGroup):
-    asking = State()          # вопросы ИИ-помощнику
-    writing_author = State()  # следующее сообщение — автору
+# Кнопки старого меню, которые могли остаться на клавиатуре у пользователей.
+LEGACY_BUTTONS = ("Консультация", "Написать автору", "Спросить ИИ-помощника")
 
 
 @dataclass
@@ -48,8 +52,7 @@ class Deps:
 def main_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=texts.BTN_GUIDES), KeyboardButton(text=texts.BTN_CONSULT)],
-            [KeyboardButton(text=texts.BTN_ASK), KeyboardButton(text=texts.BTN_AUTHOR)],
+            [KeyboardButton(text=texts.BTN_GUIDES), KeyboardButton(text=texts.BTN_ASK)],
         ],
         resize_keyboard=True,
     )
@@ -117,6 +120,26 @@ async def send_product_files(bot: Bot, config: Config, user_id: int, product: ca
     return missing
 
 
+async def resend_purchases(bot: Bot, config: Config, db: Storage, user_id: int) -> list[str]:
+    """«Файл не пришёл»: заново присылает PDF всех покупок из бота (без повторов)."""
+    paths: list[Path] = []
+    for p in db.list_purchases(user_id):
+        if p.product == catalog.GIFT_EVENING_KEY:
+            candidates = [Path(config.files_dir) / config.gift_file]
+        elif p.product in catalog.PRODUCTS:
+            candidates = catalog.files_for(catalog.PRODUCTS[p.product], config)
+        else:
+            continue
+        paths += [c for c in candidates if c not in paths]
+    missing = []
+    for path in paths:
+        if path.is_file():
+            await bot.send_document(user_id, FSInputFile(path))
+        else:
+            missing.append(path.name)
+    return missing
+
+
 async def send_outgoing(bot: Bot, config: Config, user_id: int,
                         outs: list[followup.Outgoing]) -> None:
     """Отправляет сообщения, собранные в followup.py. Ошибки Telegram пробрасываются."""
@@ -137,22 +160,24 @@ def build_router(deps: Deps) -> Router:
 
     async def apply_decision(message: Message, d: Decision) -> None:
         uid = message.from_user.id
-        await message.answer(d.reply, reply_markup=main_menu())
+        markup = to_markup(d.rows) if d.rows else main_menu()
+        await message.answer(d.reply, reply_markup=markup)
         if d.kind is Kind.CRISIS:
             # отметка без текста: продающие сообщения цепочки — стоп на 7 дней
             followup.on_crisis(db, uid)
+        if d.resend_files:
+            missing = await resend_purchases(message.bot, cfg, db, uid)
+            if missing:
+                log.warning("Повторная выдача: нет файлов %s", ", ".join(missing))
         if cfg.log_dialogs and db.has_consent(uid):
             if d.kind is Kind.CRISIS:
                 db.log_dialog(uid, "event", "сработал кризисный сценарий (текст не сохраняется)")
             elif d.log_user_text:
                 db.log_dialog(uid, "user", message.text or "")
                 db.log_dialog(uid, "bot", d.reply)
-        if d.notify_owner:
-            await notify_owner(
-                message.bot, cfg,
-                f"[{d.owner_note}] {user_label(message.from_user)}:\n{message.text}\n\n"
-                f"Ответить: /reply {uid} текст",
-            )
+        if d.notify_owner:      # только кризис и только при NOTIFY_OWNER_ON_CRISIS=1
+            await notify_owner(message.bot, cfg,
+                               f"[{d.owner_note}] {user_label(message.from_user)}:\n{message.text}")
 
     # --- /start и согласие ---------------------------------------------------
     @router.message(CommandStart())
@@ -162,8 +187,9 @@ def build_router(deps: Deps) -> Router:
         if db.has_consent(message.from_user.id):
             await message.answer(texts.MENU_HINT, reply_markup=main_menu())
             return
+        dctx.introduced.add(message.from_user.id)
         await message.answer(
-            texts.WELCOME.format(project=cfg.project_name, policy=cfg.policy_url),
+            texts.WELCOME.format(intro=texts.victoria_intro(), policy=cfg.policy_url),
             reply_markup=consent_kb(),
         )
 
@@ -208,7 +234,10 @@ def build_router(deps: Deps) -> Router:
     @router.message(Command("delete_me"))
     async def delete_me(message: Message, state: FSMContext) -> None:
         await state.clear()
-        await message.answer(texts.DELETE_CONFIRM, reply_markup=delete_kb())
+        body = texts.DELETE_CONFIRM
+        if db.refund_requests(user_id=message.from_user.id):
+            body += "\n" + texts.DELETE_REFUND_NOTE
+        await message.answer(body, reply_markup=delete_kb())
 
     @router.callback_query(F.data.in_({"delete:yes", "delete:no"}))
     async def delete_choice(cb: CallbackQuery, state: FSMContext) -> None:
@@ -245,6 +274,9 @@ def build_router(deps: Deps) -> Router:
     def sales_paused(uid: int) -> bool:
         return dctx.crisis_cooldown.active(uid) or followup.sales_paused(db, uid)
 
+    def no_sell(uid: int) -> bool:
+        return db.is_no_sell(uid)
+
     async def do_stop_tips(bot: Bot, uid: int) -> None:
         if db.get_user(uid) is not None:
             followup.stop_tips(db, uid)
@@ -275,7 +307,8 @@ def build_router(deps: Deps) -> Router:
             return
         db.set_chosen_product(uid, key)
         await send_outgoing(cb.bot, cfg, uid,
-                            followup.build_card(cfg, key, followup.owned_guides(db, uid)))
+                            followup.build_card(cfg, key, followup.owned_guides(db, uid),
+                                                sell=not no_sell(uid)))
 
     @router.callback_query(F.data.startswith("fu:wk:"))
     async def week_answer(cb: CallbackQuery) -> None:
@@ -293,7 +326,8 @@ def build_router(deps: Deps) -> Router:
             reply = texts.WEEK_CALM if answer == "calm" else safety.CRISIS_REPLY
             await cb.bot.send_message(uid, reply)
             return
-        await send_outgoing(cb.bot, cfg, uid, followup.build_week_answer(db, cfg, uid, answer, pid))
+        await send_outgoing(cb.bot, cfg, uid, followup.build_week_answer(
+            db, cfg, uid, answer, pid, sell=not no_sell(uid)))
 
     @router.callback_query(F.data.startswith("fu:swap:"))
     async def swap(cb: CallbackQuery) -> None:
@@ -304,6 +338,10 @@ def build_router(deps: Deps) -> Router:
         uid, pid, key = cb.from_user.id, int(parts[2]), parts[3]
         if not db.has_consent(uid):
             await cb.bot.send_message(uid, texts.NEED_CONSENT)
+            return
+        dctx.support.swap_chosen(uid)
+        if no_sell(uid):
+            await cb.bot.send_message(uid, texts.SWAP_AFTER_REFUND)
             return
         verdict = followup.check_swap(db, uid, pid, key)
         if not verdict.ok:
@@ -325,6 +363,39 @@ def build_router(deps: Deps) -> Router:
             await cb.message.edit_reply_markup(reply_markup=None)
         await cb.bot.send_message(uid, texts.SWAP_DONE.format(title=product.title))
         await send_product_files(cb.bot, cfg, uid, product)
+
+    # --- подарок вместо замены для набора («Карта спокойного вечера») ------------
+    @router.callback_query(F.data.startswith("fu:gift:"))
+    async def gift(cb: CallbackQuery) -> None:
+        await cb.answer()
+        parts = cb.data.split(":")
+        if len(parts) != 3 or not parts[2].isdigit():
+            return
+        uid, pid = cb.from_user.id, int(parts[2])
+        if not db.has_consent(uid):
+            await cb.bot.send_message(uid, texts.NEED_CONSENT)
+            return
+        dctx.support.swap_chosen(uid)
+        if no_sell(uid):
+            await cb.bot.send_message(uid, texts.SWAP_AFTER_REFUND)
+            return
+        verdict = followup.check_gift(db, uid, pid)
+        if not verdict.ok:
+            await cb.bot.send_message(uid, verdict.reply)
+            return
+        path = Path(cfg.files_dir) / cfg.gift_file
+        if not path.is_file():
+            await cb.bot.send_message(uid, texts.GIFT_FILE_LATER)
+            await notify_owner(cb.bot, cfg, f"Подарок «{catalog.GIFT_EVENING_TITLE}»: нет файла "
+                                            f"{path.name} в files/. Положите файл.")
+            return
+        if not followup.record_gift(db, uid, pid):
+            await cb.bot.send_message(uid, texts.GIFT_ALREADY)
+            return
+        if isinstance(cb.message, Message):
+            await cb.message.edit_reply_markup(reply_markup=None)
+        await cb.bot.send_message(uid, texts.GIFT_SENT)
+        await cb.bot.send_document(uid, FSInputFile(path))
 
     # --- команды владелицы -----------------------------------------------------
     @router.message(Command("give"))
@@ -353,31 +424,36 @@ def build_router(deps: Deps) -> Router:
             await message.answer("Нет файлов в папке files/: " + ", ".join(missing) + ". Покупка не записана.")
             return
         db.add_purchase(user_id, product.key, "manual")
+        db.close_delivery_requests(user_id)
         followup.on_purchase(db, user_id, db.last_purchase_id(user_id))
         await message.bot.send_message(user_id, texts.FEEDBACK_ASK)
         await message.answer(f"Выдано: {product.title} → {user_id}")
 
-    @router.message(Command("reply"))
-    async def reply(message: Message, command: CommandObject) -> None:
+    @router.message(Command("refunded"))
+    async def refunded(message: Message, command: CommandObject) -> None:
         if not is_owner(message):
             return
-        parts = (command.args or "").split(maxsplit=1)
-        if len(parts) != 2 or not parts[0].isdigit():
-            await message.answer("Формат: /reply <user_id> <текст>")
+        arg = (command.args or "").strip()
+        if not arg.isdigit():
+            await message.answer("Формат: /refunded <user_id> — после возврата в кабинете платёжного сервиса.")
             return
-        try:
-            await message.bot.send_message(int(parts[0]), "Ответ автора:\n\n" + parts[1])
-        except TelegramAPIError as e:
-            await message.answer(f"Не удалось отправить: {e.message}")
+        n = db.mark_refunded(int(arg))
+        await message.answer(f"Отмечено выполненными заявок: {n}." if n
+                             else "Невыполненных заявок на возврат у этого пользователя нет.")
+
+    @router.message(Command("summary"))
+    async def summary_cmd(message: Message) -> None:
+        if not is_owner(message):
             return
-        await message.answer("Отправлено.")
+        await message.answer(summary.build(db, summary.msk(message.date)))
 
     @router.message(Command("stats"))
     async def stats(message: Message) -> None:
         if not is_owner(message):
             return
         await message.answer(f"Пользователей в базе: {db.count_users()}; "
-                             f"подписаны на новости: {len(db.marketing_recipients())}")
+                             f"подписаны на новости: {len(db.marketing_recipients())}; "
+                             f"невыполненных возвратов: {len(db.refund_requests(open_only=True))}")
 
     # --- меню ------------------------------------------------------------------
     @router.message(F.text == texts.BTN_GUIDES)
@@ -390,6 +466,13 @@ def build_router(deps: Deps) -> Router:
             # после кризисного сообщения не продаём, даже по кнопке
             await message.answer(safety.CRISIS_REPLY, reply_markup=main_menu())
             return
+        if no_sell(message.from_user.id):
+            # после заявки на возврат: только описания, без цен, кнопок оплаты и призывов
+            await message.answer(texts.GUIDES_INTRO_INFO, reply_markup=main_menu())
+            for p in catalog.PRODUCTS.values():
+                if not p.bundle:
+                    await message.answer(f"{p.title}\n\n{p.description}")
+            return
         await message.answer(texts.GUIDES_INTRO, reply_markup=main_menu())
         for p in catalog.PRODUCTS.values():
             link = cfg.pay_links.get(p.key, "")
@@ -398,69 +481,22 @@ def build_router(deps: Deps) -> Router:
                 body += "\n\n" + texts.PAY_LINK_MISSING
             await message.answer(body, reply_markup=pay_kb(link, p.price_text))
 
-    @router.message(F.text == texts.BTN_CONSULT)
-    async def consult(message: Message, state: FSMContext) -> None:
-        await state.clear()
-        if not db.has_consent(message.from_user.id):
-            await message.answer(texts.NEED_CONSENT)
-            return
-        if dctx.crisis_cooldown.active(message.from_user.id):
-            await message.answer(safety.CRISIS_REPLY, reply_markup=main_menu())
-            return
-        body = texts.CONSULT_TEXT.format(
-            title=catalog.CONSULTATION_TITLE,
-            price=catalog.format_price(catalog.CONSULTATION_PRICE),
-            description=catalog.CONSULTATION_DESCRIPTION,
-        )
-        if cfg.consult_link:
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=texts.CONSULT_BUTTON, url=cfg.consult_link)]])
-            await message.answer(body, reply_markup=kb)
-        else:
-            await message.answer(body + "\n\n" + texts.CONSULT_LINK_MISSING)
-
     @router.message(F.text == texts.BTN_ASK)
     async def ask(message: Message, state: FSMContext) -> None:
-        if not db.has_consent(message.from_user.id):
-            await message.answer(texts.NEED_CONSENT)
-            return
-        await state.set_state(Flow.asking)
-        await message.answer(texts.ASK_INTRO.format(project=cfg.project_name), reply_markup=main_menu())
-
-    @router.message(F.text == texts.BTN_AUTHOR)
-    async def author(message: Message, state: FSMContext) -> None:
-        if not db.has_consent(message.from_user.id):
-            await message.answer(texts.NEED_CONSENT)
-            return
-        await state.set_state(Flow.writing_author)
-        body = texts.AUTHOR_INTRO
-        if cfg.author_contact:
-            body += "\n" + texts.AUTHOR_CONTACT_LINE.format(contact=cfg.author_contact)
-        await message.answer(body)
-
-    # --- сообщение автору ---------------------------------------------------------
-    @router.message(StateFilter(Flow.writing_author), F.text)
-    async def to_author(message: Message, state: FSMContext) -> None:
-        text = message.text or ""
-        crisis = safety.detect_crisis(text)
-        if crisis.is_crisis:
-            # Кризис важнее: фиксированный ответ + уведомление (через общий конвейер).
-            await state.clear()
-            await apply_decision(message, await process_text(dctx, message.from_user.id, text))
-            return
-        if not dctx.limiter.allow(message.from_user.id):
-            await message.answer(safety.RATE_LIMITED_REPLY)
-            return
         await state.clear()
-        await notify_owner(
-            message.bot, cfg,
-            f"[сообщение автору] {user_label(message.from_user)}:\n"
-            f"{safety.truncate(text, cfg.max_message_len * 3)}\n\n"
-            f"Ответить: /reply {message.from_user.id} текст",
-        )
-        await message.answer(texts.AUTHOR_SENT, reply_markup=main_menu())
+        if not db.has_consent(message.from_user.id):
+            await message.answer(texts.NEED_CONSENT)
+            return
+        dctx.introduced.add(message.from_user.id)
+        await message.answer(texts.ASK_INTRO.format(intro=texts.victoria_intro()),
+                             reply_markup=main_menu())
 
-    # --- любой другой текст → помощник ---------------------------------------
+    @router.message(F.text.in_(LEGACY_BUTTONS))
+    async def legacy_button(message: Message, state: FSMContext) -> None:
+        await state.clear()
+        await message.answer(texts.LEGACY_BUTTON, reply_markup=main_menu())
+
+    # --- любой другой текст → Виктория ----------------------------------------
     @router.message(F.text)
     async def free_text(message: Message) -> None:
         if (message.text or "").startswith("/"):
