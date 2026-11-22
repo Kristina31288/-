@@ -32,9 +32,9 @@ class Config:
     bot_token: str
     owner_id: int
     pay_links: dict[str, str] = field(default_factory=dict)   # telefon/podrostok/uroki/nabor -> url
-    consult_link: str = ""
     upgrade_link: str = ""   # доплата до набора для купивших один разбор (PAY_LINK_UPGRADE)
-    author_contact: str = ""
+    # Владелица с клиентами не общается. Уведомлять её о кризисных сообщениях — только по флагу.
+    notify_owner_on_crisis: bool = False
     policy_url: str = POLICY_PLACEHOLDER
     project_name: str = "Что сказать, когда…"
     gigachat_auth_key: str | None = None
@@ -162,9 +162,8 @@ def load_config(env: Mapping[str, str] | None = None) -> Config:
         bot_token=token,
         owner_id=owner_id,
         pay_links=pay_links,
-        consult_link=_link(env, "CONSULT_LINK"),
         upgrade_link=_link(env, "PAY_LINK_UPGRADE"),
-        author_contact=(env.get("AUTHOR_CONTACT") or "").strip(),
+        notify_owner_on_crisis=_bool(env, "NOTIFY_OWNER_ON_CRISIS", False),
         policy_url=policy_url,
         project_name=(env.get("PROJECT_NAME") or "").strip() or "Что сказать, когда…",
         gigachat_auth_key=auth_key,

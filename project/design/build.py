@@ -37,6 +37,8 @@ META = {
                      "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "как извиниться"],
                      "no": "Как ты со мной разговариваешь?!",
                      "yes": "Стоп. Таким тоном я не разговариваю. Вернёмся позже."},
+    "04-podarok": {"badge": "Подарок", "img": "angel-left",
+                   "pills": ["<b>7</b> вечеров", "<b>5</b> фраз", "шпаргалка"]},
     "03-uroki": {"badge": "Разбор 3", "img": "angel-right", "gray": True,
                  "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "стоп-приём"],
                  "no": "Сколько можно сидеть над одним примером!",
@@ -130,13 +132,15 @@ def build_html(slug: str) -> str:
         bubbles = (f'<div class="bubbles"><div class="bubble">{html.escape(meta["no"])}</div>'
                    f'<div class="bubble yes">{html.escape(meta["yes"])}</div></div>')
     logo = ('<div class="logo">Что сказать,<span class="when">когда…</span></div>'
-            if slug != "00-lead-magnet" else '<div class="logo">Бесплатно<span class="when">от автора</span></div>')
+            if slug not in ("00-lead-magnet", "04-podarok") else '<div class="logo">Бесплатно<span class="when">от автора</span></div>')
     gray = " g" if meta.get("gray") else ""
+    import os
+    art = "" if os.environ.get("NO_ART") else f'<div class="archimg{gray}"><img src="{img_src}" alt=""></div>' 
     cover = f"""
 <section class="cover"><div class="inner">
   <span class="badge">{html.escape(meta['badge'])}</span>
   {logo}
-  <div class="archimg{gray}"><img src="{img_src}" alt=""></div>
+  {art}
   <div class="title">{html.escape(title)}</div>
   <div class="subtitle">{html.escape(subtitle)}</div>
   {bubbles}

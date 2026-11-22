@@ -8,9 +8,18 @@
   (вид, когда отправить, отправлено/отменено). Без текстов.
 - followup_state: отписка от советов, отметка «заблокировал бота», время последнего
   срабатывания кризисного детектора (без текста), выбранная ситуация.
-- dialog_log: вопросы к ИИ-помощнику и ответы, хранятся DIALOG_LOG_DAYS дней
+- dialog_log: вопросы к ИИ-помощнице и ответы, хранятся DIALOG_LOG_DAYS дней
   (для разбора спорных случаев). Тексты кризисных сообщений НЕ сохраняются —
   только отметка, что сработал кризисный сценарий.
+- refund_requests: заявки на возврат (user_id, e-mail оплаты, покупка). Владелица видит их
+  в еженедельной сводке и отмечает выполненными командой /refunded.
+- delivery_requests: «файл не пришёл» / замена без записи о покупке в боте
+  (user_id, e-mail оплаты) — владелица выдаёт файл командой /give.
+- no_sell: отметка «не продавать» (только user_id и дата) — ставится навсегда после
+  заявки на возврат.
+- unanswered_questions: вопросы, на которые не нашлось ответа в базе, БЕЗ user_id;
+  e-mail, телефоны и ссылки вырезаются до записи (summary.scrub).
+- meta: служебные значения (когда отправлена последняя еженедельная сводка).
 
 Данные детей не запрашиваются и не хранятся (полей для них нет).
 """
@@ -63,6 +72,39 @@ CREATE TABLE IF NOT EXISTS scheduled_messages (
 );
 CREATE INDEX IF NOT EXISTS scheduled_due ON scheduled_messages(sent_at, cancelled, due_at);
 CREATE INDEX IF NOT EXISTS scheduled_user ON scheduled_messages(user_id);
+CREATE TABLE IF NOT EXISTS refund_requests (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL,
+    email        TEXT NOT NULL,         -- e-mail, на который была оплата (со слов клиента)
+    purchase_id  INTEGER,               -- последняя покупка в боте, если есть
+    product      TEXT,                  -- ключ продукта или NULL (покупки в боте нет)
+    purchased_at TEXT,
+    created_at   TEXT NOT NULL,
+    done_at      TEXT                   -- /refunded <user_id>
+);
+CREATE INDEX IF NOT EXISTS refund_user ON refund_requests(user_id);
+CREATE TABLE IF NOT EXISTS delivery_requests (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    kind       TEXT NOT NULL,           -- file | swap
+    email      TEXT NOT NULL,
+    product    TEXT,                    -- для замены: какой разбор хочет (если понятно)
+    created_at TEXT NOT NULL,
+    done_at    TEXT                     -- /give этому пользователю
+);
+CREATE TABLE IF NOT EXISTS no_sell (
+    user_id INTEGER PRIMARY KEY,
+    since   TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS unanswered_questions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    question   TEXT NOT NULL,           -- без user_id, e-mail/телефоны/ссылки вырезаны
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 CREATE TABLE IF NOT EXISTS followup_state (
     user_id        INTEGER PRIMARY KEY,
     tips_off_at    TEXT,                -- /stop_tips или кнопка «Не присылать советы»
@@ -194,7 +236,8 @@ class Storage:
     def marketing_recipients(self) -> list[int]:
         with self._lock:
             rows = self._conn.execute(
-                "SELECT user_id FROM users WHERE marketing_consent = 1 AND pd_consent_at IS NOT NULL"
+                "SELECT user_id FROM users WHERE marketing_consent = 1 AND pd_consent_at IS NOT NULL "
+                "AND user_id NOT IN (SELECT user_id FROM no_sell)"
             ).fetchall()
         return [r["user_id"] for r in rows]
 
@@ -373,11 +416,128 @@ class Storage:
     def set_chosen_product(self, user_id: int, product: str) -> None:
         self._set_state(user_id, "chosen_product", product)
 
+    # --- no_sell: после заявки на возврат не продаём никогда ------------
+    def set_no_sell(self, user_id: int, now: datetime | None = None) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("INSERT OR IGNORE INTO no_sell(user_id, since) VALUES (?, ?)",
+                               (user_id, _iso(now or utcnow())))
+
+    def is_no_sell(self, user_id: int) -> bool:
+        with self._lock:
+            return self._conn.execute("SELECT 1 FROM no_sell WHERE user_id = ?",
+                                      (user_id,)).fetchone() is not None
+
+    # --- заявки на возврат -------------------------------------------------
+    def add_refund_request(self, user_id: int, email: str, purchase: "Purchase | None" = None,
+                           now: datetime | None = None) -> int:
+        now = now or utcnow()
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "INSERT INTO refund_requests(user_id, email, purchase_id, product, purchased_at, "
+                "created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, email[:254], purchase.id if purchase else None,
+                 purchase.product if purchase else None,
+                 purchase.granted_at if purchase else None, _iso(now)))
+        return cur.lastrowid
+
+    def refund_requests(self, *, open_only: bool = False, user_id: int | None = None) -> list[dict]:
+        sql, args = "SELECT * FROM refund_requests WHERE 1 = 1", []
+        if open_only:
+            sql += " AND done_at IS NULL"
+        if user_id is not None:
+            sql += " AND user_id = ?"
+            args.append(user_id)
+        with self._lock:
+            rows = self._conn.execute(sql + " ORDER BY id", args).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_refunded(self, user_id: int, now: datetime | None = None) -> int:
+        with self._lock, self._conn:
+            return self._conn.execute(
+                "UPDATE refund_requests SET done_at = ? WHERE user_id = ? AND done_at IS NULL",
+                (_iso(now or utcnow()), user_id)).rowcount
+
+    # --- «файл не пришёл» / замена без записи о покупке --------------------
+    def add_delivery_request(self, user_id: int, kind: str, email: str,
+                             product: str | None = None, now: datetime | None = None) -> int:
+        assert kind in ("file", "swap")
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "INSERT INTO delivery_requests(user_id, kind, email, product, created_at) "
+                "VALUES (?, ?, ?, ?, ?)", (user_id, kind, email[:254], product, _iso(now or utcnow())))
+        return cur.lastrowid
+
+    def delivery_requests(self, *, open_only: bool = True) -> list[dict]:
+        sql = "SELECT * FROM delivery_requests" + (" WHERE done_at IS NULL" if open_only else "")
+        with self._lock:
+            return [dict(r) for r in self._conn.execute(sql + " ORDER BY id").fetchall()]
+
+    def close_delivery_requests(self, user_id: int, now: datetime | None = None) -> int:
+        with self._lock, self._conn:
+            return self._conn.execute(
+                "UPDATE delivery_requests SET done_at = ? WHERE user_id = ? AND done_at IS NULL",
+                (_iso(now or utcnow()), user_id)).rowcount
+
+    # --- вопросы без ответа (для сводки, без user_id) ---------------------
+    def add_unanswered(self, question: str, now: datetime | None = None) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("INSERT INTO unanswered_questions(question, created_at) VALUES (?, ?)",
+                               (question[:500], _iso(now or utcnow())))
+
+    def unanswered_between(self, start: datetime, end: datetime) -> list[str]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT question FROM unanswered_questions WHERE created_at >= ? AND created_at < ? "
+                "ORDER BY id", (_iso(start), _iso(end))).fetchall()
+        return [r["question"] for r in rows]
+
+    def purge_unanswered(self, days: int, now: datetime | None = None) -> int:
+        border = _iso((now or utcnow()) - timedelta(days=days))
+        with self._lock, self._conn:
+            return self._conn.execute("DELETE FROM unanswered_questions WHERE created_at < ?",
+                                      (border,)).rowcount
+
+    # --- счётчики для сводки ---------------------------------------------
+    def count_between(self, what: str, start: datetime, end: datetime) -> int:
+        queries = {
+            "users": "SELECT COUNT(*) FROM users WHERE created_at >= ? AND created_at < ?",
+            "purchases": "SELECT COUNT(*) FROM purchases WHERE source != 'swap' "
+                         "AND granted_at >= ? AND granted_at < ?",
+            "swaps": "SELECT COUNT(*) FROM purchases WHERE source = 'swap' "
+                     "AND granted_at >= ? AND granted_at < ?",
+            "refunds": "SELECT COUNT(*) FROM refund_requests WHERE created_at >= ? AND created_at < ?",
+            "crisis": "SELECT COUNT(*) FROM followup_state WHERE crisis_at >= ? AND crisis_at < ?",
+        }
+        with self._lock:
+            return self._conn.execute(queries[what], (_iso(start), _iso(end))).fetchone()[0]
+
+    # --- служебные значения ----------------------------------------------
+    def get_meta(self, key: str) -> str | None:
+        with self._lock:
+            r = self._conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return r["value"] if r else None
+
+    def set_meta(self, key: str, value: str) -> None:
+        with self._lock, self._conn:
+            self._conn.execute("INSERT INTO meta(key, value) VALUES (?, ?) "
+                               "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))
+
     # --- удаление по запросу (/delete_me) --------------------------------
+    def has_open_refund(self, user_id: int) -> bool:
+        return bool(self.refund_requests(open_only=True, user_id=user_id))
+
     def delete_user(self, user_id: int) -> bool:
-        """Удаляет все данные пользователя. True — если что-то было удалено."""
+        """Удаляет данные пользователя. True — если что-то было удалено.
+
+        Остаётся только то, что нужно для исполнения закона и решения владелицы:
+        невыполненная заявка на возврат (до /refunded) и отметка no_sell (user_id + дата).
+        """
         with self._lock, self._conn:
             n = 0
+            n += self._conn.execute("DELETE FROM refund_requests WHERE user_id = ? "
+                                    "AND done_at IS NOT NULL", (user_id,)).rowcount
+            n += self._conn.execute("DELETE FROM delivery_requests WHERE user_id = ?",
+                                    (user_id,)).rowcount
             n += self._conn.execute("DELETE FROM dialog_log WHERE user_id = ?", (user_id,)).rowcount
             n += self._conn.execute("DELETE FROM purchases WHERE user_id = ?", (user_id,)).rowcount
             n += self._conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,)).rowcount

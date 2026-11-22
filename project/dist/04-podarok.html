@@ -1,0 +1,152 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<title>Что сказать, когда… Карта спокойного вечера</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Great+Vibes&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet"><style>/* Вёрстка PDF-разборов «Что сказать, когда…». Токены из brand.md §8 */
+@page { size: A4; margin: 18mm 17mm 20mm 17mm; }
+@page :first { margin: 0; }
+:root{
+  --paper:#FBF7F1; --card:#FFFFFF; --line:#E8E0D4;
+  --ink:#1F2A2E; --muted:#5E6B6E;
+  --sage:#8E1D22; --sage-l:#F6ECE8;
+  --clay:#A8292E; --clay-l:#F8E6E2;
+  --coal:#232222; --cream:#F5EFE6;
+  --serif:"Cormorant Garamond",Georgia,serif; --script:"Great Vibes",cursive;
+  --green:#3C8D5A; --amber:#D69A2D; --red:#C0463A;
+}
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:"Montserrat","Inter",system-ui,sans-serif;font-size:10.6pt;line-height:1.55;color:var(--ink);background:#fff}
+
+/* ---------- Обложка ---------- */
+.cover{width:210mm;height:297mm;background:var(--coal);color:var(--cream);position:relative;overflow:hidden;page-break-after:always;padding:18mm 20mm 16mm}
+.cover .inner{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center}
+.cover .badge{font-size:9pt;letter-spacing:.3em;text-transform:uppercase;color:#BDB3A8}
+.cover .logo{margin-top:6mm;font-family:var(--serif);font-weight:300;font-size:32pt;letter-spacing:.06em;text-transform:uppercase;line-height:1}
+.cover .when{display:block;font-family:var(--script);text-transform:none;letter-spacing:0;color:#D0474C;font-size:44pt;line-height:1;margin-top:0}
+.cover .archimg{margin-top:6mm;width:84mm;height:90mm;border-radius:999px 999px 3px 3px;overflow:hidden;border:2.6mm solid var(--cream);box-shadow:0 0 0 .6mm #B8936A}
+.cover .archimg img{width:100%;height:100%;object-fit:cover;object-position:38% 30%}
+.cover .archimg.g img{filter:grayscale(1) contrast(1.05)}
+.cover .title{margin-top:7mm;font-family:var(--serif);font-weight:400;font-size:26pt;line-height:1.1;max-width:165mm;color:#fff}
+.cover .subtitle{margin-top:3mm;font-size:10.5pt;color:#BDB3A8;max-width:140mm;line-height:1.45}
+.cover .bubbles{margin-top:6mm;display:flex;flex-direction:column;gap:3mm;width:150mm}
+.cover .bubble{align-self:flex-start;background:#2E2C2B;border:1px solid #3d3a38;border-radius:14px 14px 14px 3px;padding:8px 14px;font-size:10.5pt;color:#BDB3A8;text-decoration:line-through;text-decoration-color:#D0474C;text-decoration-thickness:2px;text-align:left}
+.cover .bubble.yes{align-self:flex-end;border-radius:14px 14px 3px 14px;background:var(--sage);border-color:var(--sage);color:#fff;font-weight:600;text-decoration:none}
+.cover .bottom{margin-top:auto;display:flex;gap:3mm;justify-content:center;flex-wrap:wrap}
+.cover .pill{border:1px solid #4a4644;border-radius:999px;padding:6px 14px;font-size:9.5pt;color:var(--cream)}
+.cover .pill b{color:#E06A6E}
+
+/* ---------- Текст ---------- */
+main{padding:0}
+h1{display:none}
+h2{font-family:var(--serif);font-weight:600;font-size:21pt;line-height:1.15;margin:22pt 0 8pt;color:var(--ink);page-break-after:avoid;break-after:avoid}
+h2{padding-top:11pt;background:linear-gradient(var(--clay),var(--clay)) no-repeat 0 0/34px 3px;page-break-inside:avoid;break-inside:avoid}
+h3{font-family:var(--serif);font-weight:700;font-size:14pt;margin:14pt 0 5pt;color:var(--sage);page-break-after:avoid;break-after:avoid}
+p{margin:0 0 7pt;orphans:3;widows:3}
+li{orphans:2;widows:2}
+.about{page-break-inside:avoid;break-inside:avoid}
+.about h2{margin-top:18pt}
+ul,ol{margin:0 0 8pt;padding-left:16pt}
+li{margin:0 0 3pt}
+strong{font-weight:700}
+a{color:var(--sage)}
+hr{border:0;border-top:1px solid var(--line);margin:14pt 0}
+
+blockquote{margin:9pt 0;padding:9pt 12pt;background:var(--sage-l);border-left:4px solid var(--sage);border-radius:0 10px 10px 0;page-break-inside:avoid;break-inside:avoid}
+blockquote p:last-child{margin:0}
+blockquote.warn{background:var(--clay-l);border-left-color:var(--clay)}
+
+table{width:100%;border-collapse:separate;border-spacing:0;margin:8pt 0 10pt;font-size:9.6pt;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--sage);color:#fff;text-align:left;font-weight:600;padding:6pt 8pt}
+td{padding:6pt 8pt;border-top:1px solid var(--line);vertical-align:top}
+tr{page-break-inside:avoid;break-inside:avoid}
+tbody tr:nth-child(even) td{background:#FAF8F4}
+td:first-child{color:var(--muted)}
+td:nth-child(2){font-weight:600}
+
+/* Светофор */
+.light{border-radius:12px;padding:8pt 12pt 6pt;margin:8pt 0;border:1px solid var(--line);page-break-inside:avoid;break-inside:avoid}
+.light h3{margin-top:2pt;display:flex;align-items:center;gap:7pt}
+.light h3::before{content:"";width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.light.green{background:#EEF6F0}.light.green h3{color:var(--green)}.light.green h3::before{background:var(--green)}
+.light.amber{background:#FBF3E3}.light.amber h3{color:#A97515}.light.amber h3::before{background:var(--amber)}
+.light.red{background:#FAEAE7}.light.red h3{color:var(--red)}.light.red h3::before{background:var(--red)}
+
+/* План на 7 дней */
+.day{border:1px solid var(--line);border-radius:12px;padding:6pt 12pt 4pt;margin:7pt 0;page-break-inside:avoid;break-inside:avoid;position:relative}
+.day h3{color:var(--clay);margin-top:3pt}
+
+/* Шпаргалка */
+.cheat{page-break-before:always;break-before:page;background:var(--paper);border:2px dashed var(--sage);border-radius:16px;padding:14pt 18pt;page-break-inside:avoid;break-inside:avoid}
+.cheat h2{margin-top:0;color:var(--sage)}
+.cheat{background:#FBF8F3}
+.cheat h2{background-image:linear-gradient(var(--sage),var(--sage))}
+.cheat-note{font-size:9pt;color:var(--muted);margin-top:4pt}
+
+/* Финал */
+.help{background:var(--clay-l);border-radius:12px;padding:6pt 14pt 8pt;margin-top:12pt;page-break-inside:avoid;break-inside:avoid}
+.help h2{margin-top:8pt}
+.disclaimer{margin-top:16pt;font-size:8.6pt;color:var(--muted);border-top:1px solid var(--line);padding-top:8pt}
+</style></head>
+<body>
+<section class="cover"><div class="inner">
+  <span class="badge">Подарок</span>
+  <div class="logo">Бесплатно<span class="when">от автора</span></div>
+  
+  <div class="title">Карта спокойного вечера</div>
+  <div class="subtitle">Подарок: 7 шагов, чтобы вечер дома проходил без войны за телефон, уроки и тон</div>
+  
+  <div class="bottom"><span class="pill"><b>7</b> вечеров</span><span class="pill"><b>5</b> фраз</span><span class="pill">шпаргалка</span></div>
+</div></section><main><h2>Как пользоваться</h2>
+<p>Это не ещё один разбор, а короткая карта на одну неделю. Каждый вечер — один шаг. Отмечайте галочкой, что получилось. Не получилось — не страшно, просто повторите завтра.</p>
+<blockquote class="warn"><p><strong>Важно.</strong> Если ребёнок говорит о смерти, причиняет себе вред или дома небезопасно — не ждите. Детский телефон доверия <strong>8-800-2000-122</strong> (бесплатно, круглосуточно, для детей и родителей), при угрозе жизни — <strong>112</strong>.</p>
+</blockquote>
+<h2>7 вечеров</h2>
+<h3>Вечер 1. Пять минут без задач</h3>
+<ul>
+<li>[ ] Пять минут рядом с ребёнком без вопросов про уроки и оценки.</li>
+<li>[ ] Скажите: «Мне нравится просто побыть с тобой».</li>
+</ul>
+<h3>Вечер 2. Предупреждение вместо приказа</h3>
+<ul>
+<li>[ ] Перед любым «выключай» или «садись за уроки» — предупреждение за 10 минут.</li>
+<li>[ ] Фраза: «Через 10 минут заканчиваем. Поставишь таймер сам?»</li>
+</ul>
+<h3>Вечер 3. Пауза для себя</h3>
+<ul>
+<li>[ ] Почувствовали, что закипаете, — скажите: «Я сейчас злюсь. Мне нужно пять минут».</li>
+<li>[ ] Выйдите, выпейте воды, вернитесь. Главное — правда вернуться.</li>
+</ul>
+<h3>Вечер 4. Одно правило для всех</h3>
+<ul>
+<li>[ ] Выберите одно правило для всей семьи, включая взрослых. Например: «За ужином телефоны лежат на полке».</li>
+<li>[ ] Повесьте его на холодильник.</li>
+</ul>
+<h3>Вечер 5. Вопрос вместо допроса</h3>
+<ul>
+<li>[ ] Вместо «Как в школе?» спросите: «Что сегодня было самым смешным?» или «Кто тебя сегодня удивил?»</li>
+<li>[ ] Выслушайте до конца, без советов.</li>
+</ul>
+<h3>Вечер 6. Похвала за усилие</h3>
+<ul>
+<li>[ ] Заметьте старание, а не результат: «Ты долго сидел над этой задачей и не бросил».</li>
+<li>[ ] Одна такая фраза за вечер — достаточно.</li>
+</ul>
+<h3>Вечер 7. Маленький итог</h3>
+<ul>
+<li>[ ] Спросите ребёнка: «Что на этой неделе было лучше, чем обычно?»</li>
+<li>[ ] Назовите и своё: «Мне понравилось, что мы меньше спорили из-за…»</li>
+</ul>
+<section class="cheat"><h2>Шпаргалка на холодильник</h2>
+<p><strong>Пять фраз, которые сохраняют вечер:</strong>
+1. «Через 10 минут заканчиваем. Поставишь таймер сам?»
+2. «Я сейчас злюсь. Мне нужно пять минут, потом договорим».
+3. «Вижу, тебе трудно. Давай разобьём на кусочки».
+4. «Таким тоном я не разговариваю. Вернёмся позже».
+5. «Мне нравится просто побыть с тобой».</p>
+<p><strong>Три правила:</strong>
+- Предупреждать заранее, а не командовать в моменте.
+- Правила — для всех, включая взрослых.
+- Сорвались — извиниться. Это тоже урок для ребёнка.</p>
+<p class="cheat-note">Распечатайте эту страницу и повесьте на видное место.</p></section><section class="help"><h2>Если не помогло</h2>
+<p>Если за неделю стало только тяжелее, ребёнок резко изменился (не спит, не ест, закрылся от всех) или вы сами на пределе — обратитесь к школьному психологу или в центр психолого-педагогической помощи (ППМС-центр) вашего района: во многих регионах консультации бесплатные. Детский телефон доверия <strong>8-800-2000-122</strong> работает и для родителей.</p>
+<hr />
+<p class="disclaimer"><em>Материал носит информационно-просветительский характер, не является медицинской или психологической помощью и не заменяет консультацию специалиста. Все примеры условные.</em></p></section></main></body></html>
