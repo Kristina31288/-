@@ -14,7 +14,9 @@ def test_system_prompt_contains_rules_and_knowledge():
     for s in ("ИИ", "Не обещай результат", "платёжные данные", "8-800-2000-122", "112",
               HANDOFF_MARKER, "299 ₽", "690 ₽", "1 500 ₽", "7 дней"):
         assert s in p, s
-    assert "музык" not in p.lower()          # шаблон из agents.md адаптирован под проект
+    for s in ("без нытья", "2–5 предложений", "сначала конкретный ответ"):   # правило тона
+        assert s in p.lower(), s
+    assert "музык" not in p.lower()          # в промпте нет следов чужих шаблонов
     assert "СЕЙЧАС НЕ ПРОДАВАЙ" not in p
     assert "СЕЙЧАС НЕ ПРОДАВАЙ" in build_system_prompt("kb", no_sales=True)
 
