@@ -22,6 +22,9 @@ ROOT = Path(__file__).resolve().parent.parent
 GUIDES = ROOT / "guides"
 DIST = ROOT / "dist"
 CSS = (ROOT / "design" / "guide.css").read_text(encoding="utf-8")
+import os as _os
+if _os.environ.get("THEME"):
+    CSS += (ROOT / "design" / "themes" / f"{_os.environ['THEME']}.css").read_text(encoding="utf-8")
 FONTS = ("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700"
          "&family=Great+Vibes&family=Montserrat:wght@400;600;700&display=swap")
 
