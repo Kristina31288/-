@@ -14,7 +14,8 @@ week — через 3 дня после /give (не в тихие часы, пе
 Безопасность: кризисная отметка → все продающие сообщения отменяются на 7 дней и не
 отправляются; отписка (/stop_tips), /delete_me и блокировка бота — тоже.
 no_sell (после выполненного возврата, /refunded) → цепочка и «Как прошла неделя?» не отправляются никогда,
-карточки разборов — без кнопок оплаты.
+карточки разборов — без кнопок оплаты. Пока есть заявление о возврате без решения — то же
+временно (пауза): наступившие сообщения отменяются и после /reject не досылаются.
 """
 from __future__ import annotations
 
@@ -181,6 +182,9 @@ def check(db: Storage, msg: Scheduled, now: datetime | None = None) -> Verdict:
         return Verdict("cancel", "unsubscribed")
     if msg.kind in SALES_KINDS and db.is_no_sell(msg.user_id):
         return Verdict("cancel", "no_sell")
+    if msg.kind in SALES_KINDS and db.has_open_refund(msg.user_id):
+        # пауза продаж, пока заявление о возврате без решения; после /reject не досылаем
+        return Verdict("cancel", "refund_pause")
     if msg.kind in SALES_KINDS and sales_paused(db, msg.user_id, now):
         return Verdict("cancel", "crisis")
     if msg.kind in CHAIN_KINDS:

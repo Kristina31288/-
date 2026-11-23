@@ -12,7 +12,8 @@
    контактов) пишется в ежедневную сводку.
 
 Режим «не продавать» (no_sales): после кризиса (сутки) и навсегда после выполненного
-возврата (no_sell ставит владелица командой /refunded; подача заявления его не ставит). Тогда ИИ получает запрет продавать, FAQ отдаёт ответы без цен и оплаты, а ответ,
+возврата (no_sell ставит владелица командой /refunded) и временно — пока есть заявление
+о возврате без решения (пауза снимается командой /reject). Тогда ИИ получает запрет продавать, FAQ отдаёт ответы без цен и оплаты, а ответ,
 похожий на продажу, заменяется нейтральным.
 """
 from __future__ import annotations
@@ -79,8 +80,12 @@ class DialogContext:
     def no_sell(self, user_id: int) -> bool:
         return self.storage is not None and self.storage.is_no_sell(user_id)
 
+    def refund_pause(self, user_id: int) -> bool:
+        """Временная пауза продаж: есть заявление о возврате без решения."""
+        return self.storage is not None and self.storage.has_open_refund(user_id)
+
     def sales_blocked(self, user_id: int) -> bool:
-        return self.no_sell(user_id) or self.crisis_cooldown.active(user_id)
+        return self.no_sell(user_id) or self.refund_pause(user_id) or self.crisis_cooldown.active(user_id)
 
 
 def _introduce(ctx: DialogContext, user_id: int, text: str) -> str:
@@ -116,7 +121,7 @@ async def process_text(ctx: DialogContext, user_id: int, text: str) -> Decision:
         return Decision(Kind.RATE_LIMITED, safety.RATE_LIMITED_REPLY, log_user_text=False)
 
     no_sell = ctx.no_sell(user_id)
-    no_sales = no_sell or ctx.crisis_cooldown.active(user_id)
+    no_sales = no_sell or ctx.refund_pause(user_id) or ctx.crisis_cooldown.active(user_id)
 
     service = ctx.support.handle(user_id, text, no_sell=no_sell)
     if service is not None:

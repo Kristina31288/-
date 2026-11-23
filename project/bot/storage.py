@@ -18,8 +18,8 @@
 - delivery_requests: «файл не пришёл» / замена без записи о покупке в боте
   (user_id, e-mail оплаты) — владелица выдаёт файл командой /give.
 - no_sell: отметка «не продавать» (только user_id и дата) — ставится навсегда, когда
-  владелица отметила возврат выполненным (/refunded). Подача заявления и отказ (/reject)
-  её не ставят.
+  владелица отметила возврат выполненным (/refunded). Пока заявление без решения —
+  временная пауза продаж (sales_blocked), её снимает /reject; отметку no_sell она не ставит.
 - unanswered_questions: вопросы, на которые не нашлось ответа в базе, БЕЗ user_id;
   e-mail, телефоны и ссылки вырезаются до записи (summary.scrub).
 - meta: служебные значения (когда отправлена последняя ежедневная сводка).
@@ -254,7 +254,8 @@ class Storage:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT user_id FROM users WHERE marketing_consent = 1 AND pd_consent_at IS NOT NULL "
-                "AND user_id NOT IN (SELECT user_id FROM no_sell)"
+                "AND user_id NOT IN (SELECT user_id FROM no_sell) "
+                "AND user_id NOT IN (SELECT user_id FROM refund_requests WHERE done_at IS NULL)"
             ).fetchall()
         return [r["user_id"] for r in rows]
 
@@ -561,6 +562,11 @@ class Storage:
     # --- удаление по запросу (/delete_me) --------------------------------
     def has_open_refund(self, user_id: int) -> bool:
         return bool(self.refund_requests(open_only=True, user_id=user_id))
+
+    def sales_blocked(self, user_id: int) -> bool:
+        """Не продавать: постоянно (no_sell после /refunded) или временно — пока есть
+        заявление о возврате без решения (пауза снимается /reject)."""
+        return self.is_no_sell(user_id) or self.has_open_refund(user_id)
 
     def delete_user(self, user_id: int) -> bool:
         """Удаляет данные пользователя. True — если что-то было удалено.

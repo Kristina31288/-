@@ -240,8 +240,11 @@ def test_refund_other_application_then_no_sell_only_after_refunded(env):
     assert all_texts(s)[-1] == "Принимаю ваше заявление, его рассмотрят в течение 10 дней."
     assert s.sent(OWNER) == []                          # владелице ничего «вживую»
     rid = db.refund_requests(open_only=True)[0]["id"]
-    # заявление подано, но no_sell ещё нет: «Разборы» с ценами, «неделя» в очереди
-    assert not db.is_no_sell(USER) and db.pending_for(USER)
+    # заявление подано: no_sell ещё нет, но продажи на паузе — «Разборы» без цен и оплаты
+    assert not db.is_no_sell(USER) and db.sales_blocked(USER)
+    s.calls.clear()
+    feed(bot, dp, msg(texts.BTN_GUIDES))
+    assert all("₽" not in t for t in all_texts(s))
     # владелица: сводка со сроком, затем /refunded <№>
     feed(bot, dp, msg("/summary", user_id=OWNER))
     rep = all_texts(s, OWNER)[-1]
@@ -299,11 +302,18 @@ def test_refund_file_branch_resend_buttons_and_reject_notify(env):
     assert req["reason"] == "file"
     # /reject без notify — клиенту ничего; no_sell нет
     s.calls.clear()
+    s.calls.clear()
+    feed(bot, dp, msg(texts.BTN_GUIDES))                 # пауза продаж: без цен
+    assert all("₽" not in t for t in all_texts(s))
+    s.calls.clear()
     feed(bot, dp, msg(f"/reject {req['id']}", user_id=OWNER))
     assert "отклонено" in all_texts(s, OWNER)[-1] and s.sent(USER) == []
-    assert not db.is_no_sell(USER)
+    assert not db.is_no_sell(USER) and not db.sales_blocked(USER)
+    feed(bot, dp, msg(texts.BTN_GUIDES))                 # пауза снята: цены вернулись
+    assert any("299" in t for t in all_texts(s))
     # новое заявление → /reject <№> notify — фиксированный нейтральный текст клиенту
     rid = db.add_refund_request(USER, "pay@mail.ru", reason="other")
+    s.calls.clear()
     feed(bot, dp, msg(f"/reject {rid} notify", user_id=OWNER))
     assert all_texts(s) == [texts.REJECT_NOTIFY]
     assert texts.REJECT_NOTIFY == ("По вашему заявлению принято решение: возврат не предусмотрен, "

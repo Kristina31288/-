@@ -432,3 +432,49 @@ def test_complaint_profanity_human_no_escalation(db):
         d = run(process_text(ctx, 1, text))
         assert expected in d.reply and not d.notify_owner
     assert texts.PROFANITY_REPLY == "Готова помочь, если опишете, что не так."
+
+
+# --- пауза продаж, пока заявление о возврате без решения --------------------------
+def test_refund_pause_on_filing_lifted_by_reject_without_backfill(db):
+    import support
+    from storage import utcnow
+    db.set_marketing_consent(1, True)
+    db.add_purchase(1, "telefon")
+    pid = db.last_purchase_id(1)
+    followup.on_purchase(db, 1, pid)                 # «Как прошла неделя?» в очереди
+    ctx = make_ctx(FaqAssistant(FaqBase.load()), storage=db, limit=50)
+    assert 1 in db.marketing_recipients() and not ctx.sales_blocked(1)
+    ctx.support.on_button(1, "rf:r:other")
+    run(process_text(ctx, 1, "нет, верните деньги"))
+    run(process_text(ctx, 1, "a@b.ru"))
+    rid = db.refund_requests(open_only=True)[0]["id"]
+    # пауза: не no_sell, но продаж нет
+    assert not db.is_no_sell(1) and db.sales_blocked(1) and ctx.sales_blocked(1)
+    assert 1 not in db.marketing_recipients()
+    d = run(process_text(ctx, 1, "сколько стоит разбор?"))
+    assert not d.allow_sales and "₽" not in d.reply
+    week = db.pending_for(1)[0]
+    v = followup.check(db, week, week.due_at)
+    assert (v.action, v.reason) == ("cancel", "refund_pause")
+    db.cancel_message(week.id, v.reason)             # так делает планировщик
+    # /reject → пауза снята, продажи возобновлены
+    support.resolve_refund(db, rid, "rejected")
+    assert not db.sales_blocked(1) and not ctx.sales_blocked(1) and not db.is_no_sell(1)
+    assert 1 in db.marketing_recipients()
+    d = run(process_text(ctx, 1, "сколько стоит разбор?"))
+    assert d.allow_sales and "299" in d.reply
+    # отменённое за время паузы задним числом не досылается
+    assert db.pending_for(1) == [] and db.due_messages(utcnow() + __import__("datetime").timedelta(days=30)) == []
+
+
+def test_refund_pause_becomes_permanent_no_sell_after_refunded(db):
+    import support
+    db.set_marketing_consent(1, True)
+    db.add_purchase(1, "telefon")
+    rid = db.add_refund_request(1, "a@b.ru", reason="file")
+    assert db.sales_blocked(1) and not db.is_no_sell(1)
+    support.resolve_refund(db, rid, "refunded")
+    assert db.is_no_sell(1) and db.sales_blocked(1) and not db.has_open_refund(1)
+    assert 1 not in db.marketing_recipients()
+    ctx = make_ctx(FaqAssistant(FaqBase.load()), storage=db)
+    assert not run(process_text(ctx, 1, "сколько стоит разбор?")).allow_sales

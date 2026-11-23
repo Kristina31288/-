@@ -283,6 +283,10 @@ def build_router(deps: Deps) -> Router:
     def no_sell(uid: int) -> bool:
         return db.is_no_sell(uid)
 
+    def sell_blocked(uid: int) -> bool:
+        # no_sell навсегда или пауза, пока заявление о возврате без решения
+        return db.sales_blocked(uid)
+
     async def do_stop_tips(bot: Bot, uid: int) -> None:
         if db.get_user(uid) is not None:
             followup.stop_tips(db, uid)
@@ -314,7 +318,7 @@ def build_router(deps: Deps) -> Router:
         db.set_chosen_product(uid, key)
         await send_outgoing(cb.bot, cfg, uid,
                             followup.build_card(cfg, key, followup.owned_guides(db, uid),
-                                                sell=not no_sell(uid)))
+                                                sell=not sell_blocked(uid)))
 
     @router.callback_query(F.data.startswith("fu:wk:"))
     async def week_answer(cb: CallbackQuery) -> None:
@@ -333,7 +337,7 @@ def build_router(deps: Deps) -> Router:
             await cb.bot.send_message(uid, reply)
             return
         await send_outgoing(cb.bot, cfg, uid, followup.build_week_answer(
-            db, cfg, uid, answer, pid, sell=not no_sell(uid)))
+            db, cfg, uid, answer, pid, sell=not sell_blocked(uid)))
 
     @router.callback_query(F.data.startswith("fu:swap:"))
     async def swap(cb: CallbackQuery) -> None:
@@ -474,7 +478,7 @@ def build_router(deps: Deps) -> Router:
             note = (f"Заявление №{req['id']}: возврат отмечен выполненным. "
                     f"user_id {req['user_id']} больше не получает предложений.")
         else:
-            note = f"Заявление №{req['id']}: отклонено. Отметка «не продавать» не ставится."
+            note = f"Заявление №{req['id']}: отклонено. Пауза продаж снята, отметка «не продавать» не ставится."
         if notify:
             text = texts.REFUNDED_NOTIFY if decision == "refunded" else texts.REJECT_NOTIFY
             try:
@@ -519,8 +523,8 @@ def build_router(deps: Deps) -> Router:
             # после кризисного сообщения не продаём, даже по кнопке
             await message.answer(safety.CRISIS_REPLY, reply_markup=main_menu())
             return
-        if no_sell(message.from_user.id):
-            # после выполненного возврата: только описания, без цен, кнопок оплаты и призывов
+        if sell_blocked(message.from_user.id):
+            # после выполненного возврата или пока заявление без решения: только описания, без цен, кнопок оплаты и призывов
             await message.answer(texts.GUIDES_INTRO_INFO, reply_markup=main_menu())
             for p in catalog.PRODUCTS.values():
                 if not p.bundle:
