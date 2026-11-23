@@ -13,7 +13,7 @@ week — через 3 дня после /give (не в тихие часы, пе
 
 Безопасность: кризисная отметка → все продающие сообщения отменяются на 7 дней и не
 отправляются; отписка (/stop_tips), /delete_me и блокировка бота — тоже.
-no_sell (после заявки на возврат) → цепочка и «Как прошла неделя?» не отправляются никогда,
+no_sell (после выполненного возврата, /refunded) → цепочка и «Как прошла неделя?» не отправляются никогда,
 карточки разборов — без кнопок оплаты.
 """
 from __future__ import annotations
@@ -36,6 +36,7 @@ WEEK_SEND_AT = time(10, 0)
 CRISIS_PAUSE = timedelta(days=7)
 WEEK_AFTER = timedelta(days=3)
 REPEAT_AFTER_DAYS = 2
+SWAP_DAYS = 14                # замена разбора / подарок для набора — в течение 14 дней с оплаты
 
 TIP1, TIP2, TIP3, TIP3_REPEAT, WEEK = "tip1", "tip2", "tip3", "tip3_repeat", "week"
 CHAIN_DAYS = {TIP1: 1, TIP2: 2, TIP3: 3}
@@ -362,12 +363,20 @@ def gift_used(db: Storage, user_id: int, purchase_id: int) -> bool:
                for p in db.list_purchases(user_id))
 
 
-def check_gift(db: Storage, user_id: int, purchase_id: int) -> SwapCheck:
+def swap_window_over(purchase, now: datetime | None = None) -> bool:
+    """Прошло больше SWAP_DAYS дней с выдачи (оплаты) — замена и подарок больше не положены."""
+    granted = datetime.fromisoformat(purchase.granted_at)
+    return (now or utcnow()) - granted > timedelta(days=SWAP_DAYS)
+
+
+def check_gift(db: Storage, user_id: int, purchase_id: int, now: datetime | None = None) -> SwapCheck:
     purchase = db.get_purchase(purchase_id)
     if purchase is None or purchase.user_id != user_id or purchase.product != "nabor":
         return SwapCheck(False, texts.WEEK_NOFIT_NOTHING)
     if gift_used(db, user_id, purchase_id):
         return SwapCheck(False, texts.GIFT_ALREADY)
+    if swap_window_over(purchase, now):
+        return SwapCheck(False, texts.SWAP_EXPIRED)
     return SwapCheck(True)
 
 
@@ -387,13 +396,16 @@ class SwapCheck:
     reply: str = ""
 
 
-def check_swap(db: Storage, user_id: int, purchase_id: int, key: str) -> SwapCheck:
+def check_swap(db: Storage, user_id: int, purchase_id: int, key: str,
+               now: datetime | None = None) -> SwapCheck:
     purchase = db.get_purchase(purchase_id)
     if purchase is None or purchase.user_id != user_id or purchase.product == "nabor" \
             or purchase.source in NOT_PAID_SOURCES or key not in GUIDE_KEYS:
         return SwapCheck(False, texts.WEEK_NOFIT_NOTHING)
     if swap_used(db, user_id, purchase_id):
         return SwapCheck(False, texts.SWAP_ALREADY)
+    if swap_window_over(purchase, now):
+        return SwapCheck(False, texts.SWAP_EXPIRED)
     if key in owned_guides(db, user_id):
         return SwapCheck(False, texts.SWAP_PRODUCT_OWNED)
     return SwapCheck(True)

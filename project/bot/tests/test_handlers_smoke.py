@@ -218,7 +218,7 @@ def test_texts_have_no_consultation_or_write_to_author():
     assert not hasattr(catalog, "CONSULTATION_PRICE")
 
 
-def test_refund_flow_no_owner_handoff_then_no_sell_everywhere(env):
+def test_refund_other_application_then_no_sell_only_after_refunded(env):
     bot, dp, s, db = env
     feed(bot, dp, msg("/start"))
     feed(bot, dp, cb("consent:yes"))
@@ -228,12 +228,29 @@ def test_refund_flow_no_owner_handoff_then_no_sell_everywhere(env):
     s.calls.clear()
     feed(bot, dp, msg("верните деньги"))
     last = s.sent(USER)[-1]
-    assert texts.REFUND_OFFER_SWAP in last.text
+    assert texts.REFUND_ASK_REASON in last.text
+    assert [r[0].callback_data for r in last.reply_markup.inline_keyboard] == \
+        ["rf:r:double", "rf:r:file", "rf:r:other"]
+    feed(bot, dp, cb("rf:r:other"))
+    last = s.sent(USER)[-1]
+    assert last.text == texts.REFUND_OTHER_SWAP
     assert last.reply_markup.inline_keyboard[0][0].callback_data.startswith(f"fu:swap:{pid}:")
     feed(bot, dp, msg("нет, верните деньги"))
     feed(bot, dp, msg("pay@mail.ru"))
-    assert all_texts(s)[-1] == texts.REFUND_ACCEPTED
+    assert all_texts(s)[-1] == "Принимаю ваше заявление, его рассмотрят в течение 10 дней."
     assert s.sent(OWNER) == []                          # владелице ничего «вживую»
+    rid = db.refund_requests(open_only=True)[0]["id"]
+    # заявление подано, но no_sell ещё нет: «Разборы» с ценами, «неделя» в очереди
+    assert not db.is_no_sell(USER) and db.pending_for(USER)
+    # владелица: сводка со сроком, затем /refunded <№>
+    feed(bot, dp, msg("/summary", user_id=OWNER))
+    rep = all_texts(s, OWNER)[-1]
+    assert f"№{rid} " in rep and "осталось 10 дн." in rep and "pay@mail.ru" in rep and "Тест" not in rep
+    s.calls.clear()
+    feed(bot, dp, msg(f"/refunded {rid}", user_id=OWNER))
+    assert "возврат отмечен" in all_texts(s, OWNER)[-1]
+    assert s.sent(USER) == []                           # без notify клиенту ничего не пишем
+    assert db.refund_requests(open_only=True) == []
     assert db.is_no_sell(USER) and db.pending_for(USER) == []
     # «Разборы» — только описание, без кнопок оплаты
     s.calls.clear()
@@ -256,13 +273,73 @@ def test_refund_flow_no_owner_handoff_then_no_sell_everywhere(env):
     s.calls.clear()
     feed(bot, dp, msg("хочу новый разбор про уроки, сколько стоит?"))
     assert "₽" not in all_texts(s)[-1]
-    # владелица: /refunded и сводка
-    feed(bot, dp, msg("/summary", user_id=OWNER))
-    rep = all_texts(s, OWNER)[-1]
-    assert f"user_id {USER}" in rep and "pay@mail.ru" in rep and "Тест" not in rep
-    feed(bot, dp, msg(f"/refunded {USER}", user_id=OWNER))
-    assert "Отмечено" in all_texts(s, OWNER)[-1]
-    assert db.refund_requests(open_only=True) == []
+    # повторно решить то же заявление нельзя
+    feed(bot, dp, msg(f"/reject {rid}", user_id=OWNER))
+    assert "Открытого заявления" in all_texts(s, OWNER)[-1]
+
+
+def test_refund_file_branch_resend_buttons_and_reject_notify(env):
+    bot, dp, s, db = env
+    feed(bot, dp, msg("/start"))
+    feed(bot, dp, cb("consent:yes"))
+    feed(bot, dp, msg(f"/give {USER} telefon", user_id=OWNER))
+    s.calls.clear()
+    feed(bot, dp, msg("хочу вернуть деньги"))
+    s.calls.clear()
+    feed(bot, dp, cb("rf:r:file"))
+    sent = s.sent(USER)
+    assert isinstance(sent[0], SendDocument)            # сначала файл, потом инструкция с кнопками
+    assert sent[-1].text == texts.REFUND_FILE_RESEND
+    assert [b.callback_data for b in sent[-1].reply_markup.inline_keyboard[0]] == ["rf:f:ok", "rf:f:bad"]
+    feed(bot, dp, cb("rf:f:bad"))
+    assert all_texts(s)[-1] == texts.REFUND_FILE_ASK_EMAIL
+    feed(bot, dp, msg("pay@mail.ru"))
+    assert all_texts(s)[-1] == texts.REFUND_ACCEPTED
+    req = db.refund_requests(open_only=True)[0]
+    assert req["reason"] == "file"
+    # /reject без notify — клиенту ничего; no_sell нет
+    s.calls.clear()
+    feed(bot, dp, msg(f"/reject {req['id']}", user_id=OWNER))
+    assert "отклонено" in all_texts(s, OWNER)[-1] and s.sent(USER) == []
+    assert not db.is_no_sell(USER)
+    # новое заявление → /reject <№> notify — фиксированный нейтральный текст клиенту
+    rid = db.add_refund_request(USER, "pay@mail.ru", reason="other")
+    feed(bot, dp, msg(f"/reject {rid} notify", user_id=OWNER))
+    assert all_texts(s) == [texts.REJECT_NOTIFY]
+    assert texts.REJECT_NOTIFY == ("По вашему заявлению принято решение: возврат не предусмотрен, "
+                                   "так как файл был выдан и открывается. Если есть вопросы по "
+                                   "материалу — пишите, помогу.")
+    assert not db.is_no_sell(USER)
+    # команды решения — только для владелицы
+    rid2 = db.add_refund_request(USER, "pay@mail.ru", reason="other")
+    feed(bot, dp, msg(f"/refunded {rid2}", user_id=USER))
+    assert db.get_refund_request(rid2)["done_at"] is None and not db.is_no_sell(USER)
+    feed(bot, dp, msg("/reject abc", user_id=OWNER))
+    assert "Формат" in all_texts(s, OWNER)[-1]
+
+
+def test_refund_file_branch_opened(env):
+    bot, dp, s, db = env
+    feed(bot, dp, msg("/start"))
+    feed(bot, dp, cb("consent:yes"))
+    feed(bot, dp, msg(f"/give {USER} telefon", user_id=OWNER))
+    feed(bot, dp, cb("rf:r:file"))
+    feed(bot, dp, cb("rf:f:ok"))
+    assert all_texts(s)[-1] == texts.REFUND_FILE_OK
+    assert db.refund_requests() == []
+
+
+def test_refund_double_branch(env):
+    bot, dp, s, db = env
+    feed(bot, dp, msg("/start"))
+    feed(bot, dp, cb("consent:yes"))
+    feed(bot, dp, cb("rf:r:double"))
+    assert all_texts(s)[-1] == texts.REFUND_DOUBLE_ASK
+    feed(bot, dp, msg("pay@mail.ru 21.11"))
+    assert all_texts(s)[-1].endswith(texts.REFUND_DOUBLE_ACCEPTED)
+    req = db.refund_requests(open_only=True)[0]
+    assert (req["reason"], req["paid_on"]) == ("double", "21.11")
+    assert not db.is_no_sell(USER) and s.sent(OWNER) == []
 
 
 def test_file_missing_resends_purchase(env):

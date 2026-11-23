@@ -149,66 +149,221 @@ def db():
     s.close()
 
 
-def test_refund_flow_swap_then_insist_then_email(db):
+def callbacks(rows):
+    return [b.callback for row in rows for b in row]
+
+
+REASON_CBS = ["rf:r:double", "rf:r:file", "rf:r:other"]
+
+
+def test_refund_asks_reason_with_three_buttons(db):
+    db.add_purchase(1, "telefon")
+    spy = SpyAssistant()
+    ctx = make_ctx(spy, storage=db)
+    d = run(process_text(ctx, 1, "Верните деньги"))
+    assert d.kind is Kind.SERVICE and not d.notify_owner
+    assert texts.REFUND_ASK_REASON in d.reply
+    assert callbacks(d.rows) == REASON_CBS
+    assert [b.text for row in d.rows for b in row] == [
+        "Платёж прошёл дважды", "Файл не пришёл или не открывается", "Другая причина"]
+    assert spy.calls == [] and db.refund_requests() == []
+
+
+# --- ветка «Платёж прошёл дважды» ------------------------------------------------
+def test_refund_double_button_email_and_date(db):
+    db.add_purchase(1, "telefon")
+    ctx = make_ctx(storage=db, limit=50)
+    run(process_text(ctx, 1, "верните деньги"))
+    r = ctx.support.on_button(1, "rf:r:double")
+    assert r.text == texts.REFUND_DOUBLE_ASK
+    d = run(process_text(ctx, 1, "Mama.Test@Mail.ru"))          # без даты — переспросит дату
+    assert d.reply == texts.REFUND_DOUBLE_ASK_DATE
+    d = run(process_text(ctx, 1, "21.11"))
+    assert d.reply == texts.REFUND_DOUBLE_ACCEPTED
+    assert "в течение 10 дней" in d.reply
+    req = db.refund_requests(open_only=True)
+    assert len(req) == 1
+    assert (req[0]["reason"], req[0]["email"], req[0]["paid_on"], req[0]["product"]) == \
+        ("double", "mama.test@mail.ru", "21.11", "telefon")
+    assert not db.is_no_sell(1)                      # no_sell — только после /refunded
+
+
+def test_refund_double_detected_from_text_in_one_message(db):
+    ctx = make_ctx(storage=db)
+    d = run(process_text(ctx, 1, "Списали дважды, верните деньги"))
+    assert d.reply.endswith(texts.REFUND_DOUBLE_ASK)
+    d = run(process_text(ctx, 1, "pay@mail.ru, вчера"))
+    assert d.reply == texts.REFUND_DOUBLE_ACCEPTED
+    assert db.refund_requests()[0]["paid_on"] == "вчера"
+
+
+def test_refund_double_without_date_after_one_retry_still_accepted(db):
+    ctx = make_ctx(storage=db)
+    ctx.support.on_button(1, "rf:r:double")
+    run(process_text(ctx, 1, "pay@mail.ru"))
+    d = run(process_text(ctx, 1, "не помню"))
+    assert d.reply == texts.REFUND_DOUBLE_ACCEPTED
+    assert db.refund_requests()[0]["paid_on"] is None
+
+
+# --- ветка «Файл не пришёл или не открывается» ------------------------------------
+def test_refund_file_resends_and_opened_closes_without_request(db):
+    db.add_purchase(1, "uroki")
+    ctx = make_ctx(storage=db)
+    run(process_text(ctx, 1, "верните деньги"))
+    r = ctx.support.on_button(1, "rf:r:file")
+    assert r.resend_files and r.files_first
+    assert r.text == texts.REFUND_FILE_RESEND and "Как открыть PDF" in r.text
+    assert callbacks(r.rows) == ["rf:f:ok", "rf:f:bad"]
+    assert [b.text for row in r.rows for b in row] == ["Открылось", "Всё равно не открывается"]
+    r = ctx.support.on_button(1, "rf:f:ok")
+    assert r.text == texts.REFUND_FILE_OK
+    assert db.refund_requests() == [] and ctx.support.stage(1) is None
+
+
+def test_refund_file_still_not_opening_then_email_then_request(db):
+    db.add_purchase(1, "uroki")
+    ctx = make_ctx(storage=db)
+    d = run(process_text(ctx, 1, "файл не открывается, верните деньги"))   # причина видна сразу
+    assert d.resend_files and d.files_first and callbacks(d.rows) == ["rf:f:ok", "rf:f:bad"]
+    r = ctx.support.on_button(1, "rf:f:bad")
+    assert r.text == texts.REFUND_FILE_ASK_EMAIL
+    d = run(process_text(ctx, 1, "a@b.ru"))
+    assert d.reply == texts.REFUND_ACCEPTED == "Принимаю ваше заявление, его рассмотрят в течение 10 дней."
+    req = db.refund_requests()[0]
+    assert req["reason"] == "file" and req["email"] == "a@b.ru" and req["product"] == "uroki"
+    assert not db.is_no_sell(1)
+
+
+def test_refund_file_text_answer_not_opening(db):
+    db.add_purchase(1, "uroki")
+    ctx = make_ctx(storage=db)
+    ctx.introduced.add(1)                            # представилась раньше
+    ctx.support.on_button(1, "rf:r:file")
+    d = run(process_text(ctx, 1, "всё равно не открывается"))
+    assert d.reply == texts.REFUND_FILE_ASK_EMAIL
+
+
+def test_refund_file_without_purchase_first_delivers_file(db):
+    ctx = make_ctx(storage=db)
+    ctx.introduced.add(1)                            # представилась раньше
+    ctx.support.on_button(1, "rf:r:file")
+    d = run(process_text(ctx, 1, "q@w.ru"))
+    assert d.reply.startswith(texts.FILE_REQUEST_ACCEPTED) and texts.REFUND_FILE_REQUEST_NOTE in d.reply
+    assert db.delivery_requests()[0]["email"] == "q@w.ru"
+    assert db.refund_requests() == []               # сначала выдача файла, не возврат
+
+
+# --- ветка «Другая причина» ---------------------------------------------------------
+def test_refund_other_offers_swap_then_insist_then_email(db):
     db.add_purchase(1, "telefon")
     pid = db.last_purchase_id(1)
     db.set_marketing_consent(1, True)
     followup.on_purchase(db, 1, pid)             # «Как прошла неделя?» в очереди
-    assert db.pending_for(1)
     spy = SpyAssistant()
     ctx = make_ctx(spy, storage=db, limit=50)
-    # (а)+(б): признаёт и один раз предлагает замену кнопками
-    d = run(process_text(ctx, 1, "Верните деньги, разбор ерунда"))
-    assert d.kind is Kind.SERVICE and not d.notify_owner
-    assert texts.REFUND_OFFER_SWAP in d.reply
-    assert [b.callback for row in d.rows for b in row] == [f"fu:swap:{pid}:podrostok", f"fu:swap:{pid}:uroki"]
-    # (в): настаивает → не спорит, просит e-mail
+    run(process_text(ctx, 1, "Верните деньги, разбор ерунда"))
+    r = ctx.support.on_button(1, "rf:r:other")
+    assert r.text == texts.REFUND_OTHER_SWAP and "14 дней" in r.text
+    assert callbacks(r.rows) == [f"fu:swap:{pid}:podrostok", f"fu:swap:{pid}:uroki"]
     d = run(process_text(ctx, 1, "нет, верните деньги"))
-    assert d.reply == texts.REFUND_ASK_EMAIL
+    assert d.reply == texts.REFUND_OTHER_ASK_EMAIL
     d = run(process_text(ctx, 1, "не помню точно"))
     assert d.reply == texts.EMAIL_AGAIN
     d = run(process_text(ctx, 1, "Mama.Test@Mail.ru"))
-    assert d.reply == texts.REFUND_ACCEPTED
-    assert "до 10 рабочих дней" in d.reply and "зависит от банка" in d.reply
-    reqs = db.refund_requests(open_only=True)
-    assert len(reqs) == 1 and reqs[0]["email"] == "mama.test@mail.ru"
-    assert reqs[0]["product"] == "telefon" and reqs[0]["purchase_id"] == pid
-    assert db.is_no_sell(1)
-    assert db.pending_for(1) == []                 # цепочка отменена
+    assert d.reply == "Принимаю ваше заявление, его рассмотрят в течение 10 дней."
+    for banned in ("верн", "закон", "ЗоЗПП", "статья", "отказ"):
+        assert banned not in d.reply
+    req = db.refund_requests(open_only=True)
+    assert len(req) == 1 and req[0]["reason"] == "other" and req[0]["purchase_id"] == pid
+    # no_sell НЕ ставится при подаче заявления, продающие сообщения не отменяются
+    assert not db.is_no_sell(1) and db.pending_for(1)
     assert spy.calls == []                         # ИИ в сценарии не участвовал
-    # повторная просьба — заявка уже есть, без второй
+    # повторная просьба — заявление уже есть, второго нет
     d = run(process_text(ctx, 1, "верните деньги"))
-    assert d.reply.startswith(texts.REFUND_ALREADY) or texts.REFUND_ALREADY in d.reply
+    assert texts.REFUND_ALREADY in d.reply
+    assert ctx.support.on_button(1, "rf:r:other").text == texts.REFUND_ALREADY
     assert len(db.refund_requests()) == 1
-    # владелица отметила возврат
-    assert db.mark_refunded(1) == 1 and db.refund_requests(open_only=True) == []
 
 
-def test_refund_swap_offered_only_once(db):
+def test_refund_other_reason_typed_as_text(db):
     db.add_purchase(1, "telefon")
     ctx = make_ctx(storage=db)
     run(process_text(ctx, 1, "хочу вернуть деньги"))
+    d = run(process_text(ctx, 1, "просто не понравилось"))
+    assert d.reply == texts.REFUND_OTHER_SWAP and d.rows
+
+
+def test_refund_other_swap_offered_only_once(db):
+    db.add_purchase(1, "telefon")
+    ctx = make_ctx(storage=db)
+    ctx.support.on_button(1, "rf:r:other")
     run(process_text(ctx, 1, "о чём разбор 2?"))      # сменила тему — сценарий закрыт
-    d = run(process_text(ctx, 1, "всё-таки верните деньги"))
-    assert d.reply == texts.REFUND_ASK_EMAIL         # замену второй раз не предлагает
+    r = ctx.support.on_button(1, "rf:r:other")
+    assert r.text == texts.REFUND_OTHER_ASK_EMAIL     # замену второй раз не предлагает
 
 
-def test_refund_with_email_in_first_message_after_offer(db):
+def test_refund_other_without_record_email_in_same_message(db):
     ctx = make_ctx(storage=db)                       # покупки в боте нет (файл пришёл на почту)
-    d = run(process_text(ctx, 1, "верните деньги"))
-    assert texts.REFUND_OFFER_SWAP_NO_RECORD in d.reply
+    ctx.introduced.add(1)
+    r = ctx.support.on_button(1, "rf:r:other")
+    assert r.text == texts.REFUND_OTHER_SWAP_NO_RECORD
     d = run(process_text(ctx, 1, "нет, только деньги, почта x@y.ru"))
     assert d.reply == texts.REFUND_ACCEPTED
-    r = db.refund_requests()[0]
-    assert r["product"] is None and r["email"] == "x@y.ru"
+    req = db.refund_requests()[0]
+    assert req["product"] is None and req["email"] == "x@y.ru" and req["reason"] == "other"
 
 
-def test_refund_for_nabor_offers_gift(db):
+def test_refund_other_for_nabor_offers_gift(db):
     db.add_purchase(1, "nabor")
     pid = db.last_purchase_id(1)
-    d = run(process_text(make_ctx(storage=db), 1, "верните деньги"))
-    assert texts.REFUND_OFFER_GIFT in d.reply
-    assert [b.callback for row in d.rows for b in row] == [f"fu:gift:{pid}"]
+    ctx = make_ctx(storage=db)
+    ctx.introduced.add(1)                            # представилась раньше
+    r = ctx.support.on_button(1, "rf:r:other")
+    assert r.text == texts.REFUND_OTHER_GIFT
+    assert callbacks(r.rows) == [f"fu:gift:{pid}"]
+    d = run(process_text(ctx, 1, "давайте подарок"))
+    assert d.reply == texts.REFUND_PICK_SWAP and callbacks(d.rows) == [f"fu:gift:{pid}"]
+
+
+def test_refund_other_after_14_days_goes_straight_to_application(db):
+    from datetime import timedelta
+    from storage import utcnow
+    db.add_purchase(1, "telefon", now=utcnow() - timedelta(days=15))
+    ctx = make_ctx(storage=db)
+    r = ctx.support.on_button(1, "rf:r:other")
+    assert r.text == texts.REFUND_OTHER_ASK_EMAIL
+    pid = db.last_purchase_id(1)
+    assert followup.check_swap(db, 1, pid, "uroki").reply == texts.SWAP_EXPIRED
+
+
+def test_refund_texts_do_not_promise_or_argue():
+    for name in ("REFUND_ASK_REASON", "REFUND_OTHER_SWAP", "REFUND_OTHER_GIFT",
+                 "REFUND_OTHER_SWAP_NO_RECORD", "REFUND_OTHER_ASK_EMAIL", "REFUND_ACCEPTED",
+                 "REFUND_ALREADY", "REFUND_FILE_ASK_EMAIL", "REFUND_FILE_RESEND"):
+        t = getattr(texts, name).lower()
+        for banned in ("оформлю возврат", "вернём", "верну деньги", "закон", "зозпп", "статья",
+                       "не положен", "доступ"):
+            assert banned not in t, (name, banned)
+
+
+def test_resolve_refund_no_sell_only_after_refunded(db):
+    import support
+    db.set_marketing_consent(1, True)
+    db.add_purchase(1, "telefon")
+    followup.on_purchase(db, 1, db.last_purchase_id(1))
+    a = db.add_refund_request(1, "a@b.ru", reason="other")
+    assert not db.is_no_sell(1)
+    # отказ: заявление закрыто, no_sell нет, сообщения не отменены
+    req = support.resolve_refund(db, a, "rejected")
+    assert req["decision"] == "rejected" and req["done_at"]
+    assert not db.is_no_sell(1) and db.pending_for(1)
+    assert support.resolve_refund(db, a, "refunded") is None        # уже решено
+    # возврат выполнен: no_sell + отмена продающих сообщений
+    b = db.add_refund_request(1, "a@b.ru", reason="file")
+    req = support.resolve_refund(db, b, "refunded")
+    assert req["decision"] == "refunded" and db.is_no_sell(1) and db.pending_for(1) == []
+    assert support.resolve_refund(db, 999, "refunded") is None
 
 
 def test_wildberries_refund_by_marketplace_rules(db):
@@ -217,7 +372,7 @@ def test_wildberries_refund_by_marketplace_rules(db):
     assert db.refund_requests() == [] and not db.is_no_sell(1)
 
 
-# --- no_sell после заявки на возврат ---------------------------------------------
+# --- no_sell после выполненного возврата ---------------------------------------------
 def test_no_sell_answers_have_no_sales(db):
     db.set_no_sell(1)
     ctx = make_ctx(FaqAssistant(FaqBase.load()), storage=db, limit=50)
@@ -249,7 +404,8 @@ def test_no_sell_nofit_does_not_offer_swap(db):
 def test_llm_refund_marker_starts_flow(db):
     spy = SpyAssistant("Поняла, помогу.", refund=True)
     d = run(process_text(make_ctx(spy, storage=db), 1, "хочу назад свои 299"))
-    assert d.kind is Kind.SERVICE and texts.REFUND_OFFER_SWAP_NO_RECORD in d.reply
+    assert d.kind is Kind.SERVICE and texts.REFUND_ASK_REASON in d.reply
+    assert callbacks(d.rows) == REASON_CBS
 
 
 # --- файл, жалоба, мат, человек ----------------------------------------------------

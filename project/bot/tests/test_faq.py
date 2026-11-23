@@ -125,7 +125,7 @@ def test_faq_json_is_valid_and_has_fallback():
 def test_knowledge_has_products_and_15_questions():
     kb = (BOT_DIR / "knowledge.md").read_text(encoding="utf-8")
     for s in ("299 ₽", "690 ₽", "8-800-2000-122", "7 дней", "Виктория", "Карта спокойного вечера",
-              "до 10 рабочих дней", "Wildberries", "Проверено подростком", "Кристина Плетнева"):
+              "в течение 10 дней", "14 дней", "Wildberries", "Проверено подростком", "Кристина Плетнева"):
         assert s in kb
     assert "1 500" not in kb and "Консультация автора" not in kb
     assert "15." in kb

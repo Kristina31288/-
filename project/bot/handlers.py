@@ -2,7 +2,7 @@
 
 С клиентами общается только ИИ-помощница «Виктория». Владелица с клиентами не переписывается:
 команд «ответить пользователю» и кнопок «Написать автору» / «Консультация» нет. Всё, что
-требует её действий, приходит в еженедельной сводке (summary.py).
+требует её действий, приходит в ежедневной сводке (summary.py, 10:00 МСК).
 """
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ import catalog
 import followup
 import safety
 import summary
+import support
 import texts
 from config import Config
 from dialog import DialogContext, Decision, Kind, process_text
@@ -158,17 +159,22 @@ def build_router(deps: Deps) -> Router:
     def is_owner(m: Message) -> bool:
         return m.from_user is not None and m.from_user.id == cfg.owner_id
 
+    async def resend_files(bot: Bot, uid: int) -> None:
+        missing = await resend_purchases(bot, cfg, db, uid)
+        if missing:
+            log.warning("Повторная выдача: нет файлов %s", ", ".join(missing))
+
     async def apply_decision(message: Message, d: Decision) -> None:
         uid = message.from_user.id
         markup = to_markup(d.rows) if d.rows else main_menu()
+        if d.resend_files and d.files_first:
+            await resend_files(message.bot, uid)
         await message.answer(d.reply, reply_markup=markup)
         if d.kind is Kind.CRISIS:
             # отметка без текста: продающие сообщения цепочки — стоп на 7 дней
             followup.on_crisis(db, uid)
-        if d.resend_files:
-            missing = await resend_purchases(message.bot, cfg, db, uid)
-            if missing:
-                log.warning("Повторная выдача: нет файлов %s", ", ".join(missing))
+        if d.resend_files and not d.files_first:
+            await resend_files(message.bot, uid)
         if cfg.log_dialogs and db.has_consent(uid):
             if d.kind is Kind.CRISIS:
                 db.log_dialog(uid, "event", "сработал кризисный сценарий (текст не сохраняется)")
@@ -397,6 +403,25 @@ def build_router(deps: Deps) -> Router:
         await cb.bot.send_message(uid, texts.GIFT_SENT)
         await cb.bot.send_document(uid, FSInputFile(path))
 
+    # --- кнопки сценария возврата (support.py) -----------------------------------
+    @router.callback_query(F.data.startswith("rf:"))
+    async def refund_button(cb: CallbackQuery) -> None:
+        await cb.answer()
+        uid = cb.from_user.id
+        if not db.has_consent(uid):
+            await cb.bot.send_message(uid, texts.NEED_CONSENT)
+            return
+        r = dctx.support.on_button(uid, cb.data, no_sell=no_sell(uid))
+        if r is None:
+            return
+        if isinstance(cb.message, Message):
+            await cb.message.edit_reply_markup(reply_markup=None)
+        if r.resend_files and r.files_first:
+            await resend_files(cb.bot, uid)
+        await cb.bot.send_message(uid, r.text, reply_markup=to_markup(r.rows))
+        if r.resend_files and not r.files_first:
+            await resend_files(cb.bot, uid)
+
     # --- команды владелицы -----------------------------------------------------
     @router.message(Command("give"))
     async def give(message: Message, command: CommandObject) -> None:
@@ -429,17 +454,45 @@ def build_router(deps: Deps) -> Router:
         await message.bot.send_message(user_id, texts.FEEDBACK_ASK)
         await message.answer(f"Выдано: {product.title} → {user_id}")
 
-    @router.message(Command("refunded"))
-    async def refunded(message: Message, command: CommandObject) -> None:
+    async def decide_refund(message: Message, command: CommandObject, decision: str) -> None:
+        """/refunded <№> [notify] и /reject <№> [notify]. № — номер заявления из сводки."""
         if not is_owner(message):
             return
-        arg = (command.args or "").strip()
-        if not arg.isdigit():
-            await message.answer("Формат: /refunded <user_id> — после возврата в кабинете платёжного сервиса.")
+        name = command.command
+        parts = (command.args or "").split()
+        notify = len(parts) == 2 and parts[1].lower() == "notify"
+        if not parts or not parts[0].lstrip("№#").isdigit() or (len(parts) == 2 and not notify) \
+                or len(parts) > 2:
+            await message.answer(f"Формат: /{name} <№ заявления> или /{name} <№> notify "
+                                 "(№ — из сводки).")
             return
-        n = db.mark_refunded(int(arg))
-        await message.answer(f"Отмечено выполненными заявок: {n}." if n
-                             else "Невыполненных заявок на возврат у этого пользователя нет.")
+        req = support.resolve_refund(db, int(parts[0].lstrip("№#")), decision)
+        if req is None:
+            await message.answer("Открытого заявления с таким номером нет (уже решено или номер неверный).")
+            return
+        if decision == "refunded":
+            note = (f"Заявление №{req['id']}: возврат отмечен выполненным. "
+                    f"user_id {req['user_id']} больше не получает предложений.")
+        else:
+            note = f"Заявление №{req['id']}: отклонено. Отметка «не продавать» не ставится."
+        if notify:
+            text = texts.REFUNDED_NOTIFY if decision == "refunded" else texts.REJECT_NOTIFY
+            try:
+                await message.bot.send_message(req["user_id"], text)
+                note += " Клиенту отправлено сообщение о решении."
+            except TelegramAPIError as e:
+                note += f" Сообщение клиенту не доставлено: {e.message}."
+        else:
+            note += " Клиенту ничего не отправлено."
+        await message.answer(note)
+
+    @router.message(Command("refunded"))
+    async def refunded(message: Message, command: CommandObject) -> None:
+        await decide_refund(message, command, "refunded")
+
+    @router.message(Command("reject"))
+    async def reject(message: Message, command: CommandObject) -> None:
+        await decide_refund(message, command, "rejected")
 
     @router.message(Command("summary"))
     async def summary_cmd(message: Message) -> None:
@@ -453,7 +506,7 @@ def build_router(deps: Deps) -> Router:
             return
         await message.answer(f"Пользователей в базе: {db.count_users()}; "
                              f"подписаны на новости: {len(db.marketing_recipients())}; "
-                             f"невыполненных возвратов: {len(db.refund_requests(open_only=True))}")
+                             f"заявлений о возврате без решения: {len(db.refund_requests(open_only=True))}")
 
     # --- меню ------------------------------------------------------------------
     @router.message(F.text == texts.BTN_GUIDES)
@@ -467,7 +520,7 @@ def build_router(deps: Deps) -> Router:
             await message.answer(safety.CRISIS_REPLY, reply_markup=main_menu())
             return
         if no_sell(message.from_user.id):
-            # после заявки на возврат: только описания, без цен, кнопок оплаты и призывов
+            # после выполненного возврата: только описания, без цен, кнопок оплаты и призывов
             await message.answer(texts.GUIDES_INTRO_INFO, reply_markup=main_menu())
             for p in catalog.PRODUCTS.values():
                 if not p.bundle:

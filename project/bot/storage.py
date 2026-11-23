@@ -11,15 +11,18 @@
 - dialog_log: вопросы к ИИ-помощнице и ответы, хранятся DIALOG_LOG_DAYS дней
   (для разбора спорных случаев). Тексты кризисных сообщений НЕ сохраняются —
   только отметка, что сработал кризисный сценарий.
-- refund_requests: заявки на возврат (user_id, e-mail оплаты, покупка). Владелица видит их
-  в еженедельной сводке и отмечает выполненными командой /refunded.
+- refund_requests: заявления о возврате (user_id, e-mail оплаты, покупка, основание
+  double | file | other, дата платежа со слов клиента для double). Владелица видит их
+  в ежедневной сводке со сроком «осталось N дней из 10» и закрывает командой
+  /refunded <№> (возврат выполнен) или /reject <№> (отказ).
 - delivery_requests: «файл не пришёл» / замена без записи о покупке в боте
   (user_id, e-mail оплаты) — владелица выдаёт файл командой /give.
-- no_sell: отметка «не продавать» (только user_id и дата) — ставится навсегда после
-  заявки на возврат.
+- no_sell: отметка «не продавать» (только user_id и дата) — ставится навсегда, когда
+  владелица отметила возврат выполненным (/refunded). Подача заявления и отказ (/reject)
+  её не ставят.
 - unanswered_questions: вопросы, на которые не нашлось ответа в базе, БЕЗ user_id;
   e-mail, телефоны и ссылки вырезаются до записи (summary.scrub).
-- meta: служебные значения (когда отправлена последняя еженедельная сводка).
+- meta: служебные значения (когда отправлена последняя ежедневная сводка).
 
 Данные детей не запрашиваются и не хранятся (полей для них нет).
 """
@@ -79,8 +82,11 @@ CREATE TABLE IF NOT EXISTS refund_requests (
     purchase_id  INTEGER,               -- последняя покупка в боте, если есть
     product      TEXT,                  -- ключ продукта или NULL (покупки в боте нет)
     purchased_at TEXT,
-    created_at   TEXT NOT NULL,
-    done_at      TEXT                   -- /refunded <user_id>
+    reason       TEXT,                  -- double | file | other (основание со слов клиента)
+    paid_on      TEXT,                  -- для double: дата платежа со слов клиента
+    created_at   TEXT NOT NULL,          -- дата подачи заявления: от неё считается 10-дневный срок
+    done_at      TEXT,                  -- /refunded <№> или /reject <№>
+    decision     TEXT                   -- refunded | rejected
 );
 CREATE INDEX IF NOT EXISTS refund_user ON refund_requests(user_id);
 CREATE TABLE IF NOT EXISTS delivery_requests (
@@ -182,7 +188,18 @@ class Storage:
         if path != ":memory:":
             self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.executescript(SCHEMA)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Добавляет колонки, которых нет в базе от прошлых версий бота."""
+        have = {r["name"] for r in self._conn.execute("PRAGMA table_info(refund_requests)")}
+        for col in ("reason", "paid_on", "decision"):
+            if col not in have:
+                self._conn.execute(f"ALTER TABLE refund_requests ADD COLUMN {col} TEXT")
+        # старые выполненные заявки (до появления /reject) — это выполненные возвраты
+        self._conn.execute("UPDATE refund_requests SET decision = 'refunded' "
+                           "WHERE done_at IS NOT NULL AND decision IS NULL")
 
     def close(self) -> None:
         with self._lock:
@@ -416,7 +433,7 @@ class Storage:
     def set_chosen_product(self, user_id: int, product: str) -> None:
         self._set_state(user_id, "chosen_product", product)
 
-    # --- no_sell: после заявки на возврат не продаём никогда ------------
+    # --- no_sell: после выполненного возврата (/refunded) не продаём никогда --
     def set_no_sell(self, user_id: int, now: datetime | None = None) -> None:
         with self._lock, self._conn:
             self._conn.execute("INSERT OR IGNORE INTO no_sell(user_id, since) VALUES (?, ?)",
@@ -427,17 +444,22 @@ class Storage:
             return self._conn.execute("SELECT 1 FROM no_sell WHERE user_id = ?",
                                       (user_id,)).fetchone() is not None
 
-    # --- заявки на возврат -------------------------------------------------
+    # --- заявления о возврате ---------------------------------------------
+    REFUND_REASONS = ("double", "file", "other")
+
     def add_refund_request(self, user_id: int, email: str, purchase: "Purchase | None" = None,
-                           now: datetime | None = None) -> int:
+                           now: datetime | None = None, *, reason: str = "other",
+                           paid_on: str | None = None) -> int:
+        assert reason in self.REFUND_REASONS
         now = now or utcnow()
         with self._lock, self._conn:
             cur = self._conn.execute(
                 "INSERT INTO refund_requests(user_id, email, purchase_id, product, purchased_at, "
-                "created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                "reason, paid_on, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (user_id, email[:254], purchase.id if purchase else None,
                  purchase.product if purchase else None,
-                 purchase.granted_at if purchase else None, _iso(now)))
+                 purchase.granted_at if purchase else None, reason,
+                 (paid_on or None) and paid_on[:40], _iso(now)))
         return cur.lastrowid
 
     def refund_requests(self, *, open_only: bool = False, user_id: int | None = None) -> list[dict]:
@@ -451,11 +473,25 @@ class Storage:
             rows = self._conn.execute(sql + " ORDER BY id", args).fetchall()
         return [dict(r) for r in rows]
 
-    def mark_refunded(self, user_id: int, now: datetime | None = None) -> int:
+    def get_refund_request(self, request_id: int) -> dict | None:
+        with self._lock:
+            r = self._conn.execute("SELECT * FROM refund_requests WHERE id = ?",
+                                   (request_id,)).fetchone()
+        return dict(r) if r else None
+
+    def close_refund_request(self, request_id: int, decision: str,
+                             now: datetime | None = None) -> dict | None:
+        """Закрывает открытое заявление решением refunded | rejected.
+
+        Возвращает заявление (уже закрытое) или None, если такого открытого заявления нет.
+        Отметку no_sell здесь НЕ ставим: это делает обработчик /refunded (support.on_refunded).
+        """
+        assert decision in ("refunded", "rejected")
         with self._lock, self._conn:
-            return self._conn.execute(
-                "UPDATE refund_requests SET done_at = ? WHERE user_id = ? AND done_at IS NULL",
-                (_iso(now or utcnow()), user_id)).rowcount
+            n = self._conn.execute(
+                "UPDATE refund_requests SET done_at = ?, decision = ? WHERE id = ? AND done_at IS NULL",
+                (_iso(now or utcnow()), decision, request_id)).rowcount
+        return self.get_refund_request(request_id) if n else None
 
     # --- «файл не пришёл» / замена без записи о покупке --------------------
     def add_delivery_request(self, user_id: int, kind: str, email: str,
@@ -530,7 +566,7 @@ class Storage:
         """Удаляет данные пользователя. True — если что-то было удалено.
 
         Остаётся только то, что нужно для исполнения закона и решения владелицы:
-        невыполненная заявка на возврат (до /refunded) и отметка no_sell (user_id + дата).
+        заявление о возврате без решения (до /refunded или /reject) и отметка no_sell (user_id + дата).
         """
         with self._lock, self._conn:
             n = 0

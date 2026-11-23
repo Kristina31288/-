@@ -1,10 +1,11 @@
-"""Еженедельная сводка владелице: раз в неделю, понедельник 10:00 МСК, одно сообщение.
+"""Ежедневная сводка владелице: каждый день в 10:00 МСК, одно сообщение.
 
 Владелица с клиентами не переписывается — всё, что требует её действий, она видит здесь:
-- счётчики за неделю: новые пользователи, покупки (записанные в боте), замены, заявки на
-  возврат, срабатывания кризисного сценария (только число);
-- невыполненные заявки на возврат: user_id, e-mail оплаты, дата покупки, продукт →
-  возврат в кабинете платёжного сервиса, затем /refunded <user_id>;
+- счётчики за сутки: новые пользователи, покупки (записанные в боте), замены, заявления
+  о возврате, срабатывания кризисного сценария (только число);
+- заявления о возврате без решения: №, user_id, e-mail оплаты, основание, дата подачи и
+  «осталось N дн.» до 10-дневного срока рассмотрения (≤3 дня — пометка «СРОЧНО»);
+  решение → /refunded <№> (возврат выполнен) или /reject <№> (отказ);
 - кому выдать файл после проверки оплаты (нет записи о покупке в боте) → /give;
 - вопросы, на которые Виктория не нашла ответа в базе — БЕЗ user_id и без контактов.
 
@@ -20,9 +21,10 @@ import catalog
 from followup import MSK, SHORT_TITLES, msk
 from storage import Storage
 
-SUMMARY_WEEKDAY = 0              # понедельник
-SUMMARY_TIME = time(10, 0)       # МСК
-PERIOD = timedelta(days=7)
+SUMMARY_TIME = time(10, 0)       # МСК, каждый день
+PERIOD = timedelta(days=1)
+REFUND_DEADLINE_DAYS = 10        # срок рассмотрения заявления о возврате (календарные дни)
+URGENT_DAYS = 3                  # осталось ≤3 дней — подсветить
 META_KEY = "summary_last_slot"
 MAX_QUESTIONS = 15
 MAX_QUESTION_LEN = 200
@@ -46,10 +48,9 @@ def scrub(text: str, limit: int = MAX_QUESTION_LEN) -> str:
 
 # --- расписание -----------------------------------------------------------
 def last_slot(now: datetime) -> datetime:
-    """Последний момент «понедельник 10:00 МСК», не позже now."""
+    """Последний момент «10:00 МСК», не позже now."""
     local = msk(now)
-    days_back = (local.weekday() - SUMMARY_WEEKDAY) % 7
-    slot = datetime.combine(local.date() - timedelta(days=days_back), SUMMARY_TIME, MSK)
+    slot = datetime.combine(local.date(), SUMMARY_TIME, MSK)
     if slot > local:
         slot -= PERIOD
     return slot
@@ -63,7 +64,8 @@ def due_slot(db: Storage, now: datetime) -> datetime | None:
     """Слот, за который пора отправить сводку, или None.
 
     При первом запуске бота ничего не шлём: запоминаем текущий слот, первая сводка придёт
-    в ближайший понедельник. Если бот был выключен в понедельник — сводка уйдёт после запуска.
+    в ближайшие 10:00 МСК. Если бот был выключен в 10:00 — сводка уйдёт после запуска
+    (одна, за последние сутки).
     """
     slot = last_slot(now)
     sent = db.get_meta(META_KEY)
@@ -94,29 +96,66 @@ def _product(key: str | None) -> str:
     return p.title if p else key
 
 
+_REASONS = {
+    "double": "платёж прошёл дважды",
+    "file": "файл не пришёл / не открывается, повторная выдача не помогла",
+    "other": "другая причина (замену предлагали)",
+}
+
+
+def days_left(created_at: str | datetime, today: datetime) -> int:
+    """Сколько календарных дней осталось до конца 10-дневного срока (0 — последний день,
+    отрицательное — срок прошёл). Считаем по датам МСК от дня подачи заявления."""
+    created = datetime.fromisoformat(created_at) if isinstance(created_at, str) else created_at
+    deadline = msk(created).date() + timedelta(days=REFUND_DEADLINE_DAYS)
+    return (deadline - msk(today).date()).days
+
+
+def _deadline_text(left: int) -> str:
+    if left < 0:
+        text = f"СРОК ПРОШЁЛ {-left} дн. назад"
+    elif left == 0:
+        text = "срок истекает СЕГОДНЯ"
+    else:
+        text = f"осталось {left} дн. до 10-дневного срока"
+    return ("СРОЧНО — " + text) if left <= URGENT_DAYS else text
+
+
+def _refund_line(r: dict, end: datetime) -> str:
+    reason = _REASONS.get(r.get("reason") or "", "основание не указано")
+    if r.get("reason") == "double":
+        reason += f" (дата платежей со слов клиента: {r.get('paid_on') or 'не указана'})"
+    return (f"№{r['id']} · {_deadline_text(days_left(r['created_at'], end))} · "
+            f"подано {_d(r['created_at'])} · user_id {r['user_id']} · e-mail оплаты {r['email']} · "
+            f"{reason} · покупка {_d(r['purchased_at'])} · {_product(r['product'])}")
+
+
 def build(db: Storage, end: datetime) -> str:
-    """Сводка за 7 дней до end (не включая end)."""
+    """Сводка за сутки до end (не включая end). Сроки по заявлениям — на дату end."""
     start = end - PERIOD
     c = {k: db.count_between(k, start, end) for k in ("users", "purchases", "swaps", "refunds", "crisis")}
     lines = [
-        f"Сводка за неделю {_d(start)}–{_d(end - timedelta(seconds=1))} (МСК)",
+        f"Сводка за сутки {msk(start).strftime('%d.%m %H:%M')}–{msk(end).strftime('%d.%m.%Y %H:%M')} (МСК)",
         "",
         f"Новых пользователей: {c['users']}",
         f"Покупок (записанных в боте): {c['purchases']}",
         f"Замен разбора (и подарков вместо замены набора): {c['swaps']}",
-        f"Заявок на возврат за неделю: {c['refunds']}",
+        f"Новых заявлений о возврате: {c['refunds']}",
     ]
     if c["crisis"]:
         lines.append(f"Срабатываний кризисного сценария: {c['crisis']} (бот ответил фиксированным текстом)")
 
-    refunds = db.refund_requests(open_only=True)
-    lines += ["", f"Возвраты к оформлению: {len(refunds)}"]
+    refunds = sorted(db.refund_requests(open_only=True),
+                     key=lambda r: (days_left(r["created_at"], end), r["id"]))
+    lines += ["", f"Заявления о возврате без решения: {len(refunds)}"]
     if refunds:
-        lines.append("Сделайте возврат в кабинете платёжного сервиса, затем /refunded <user_id>.")
-        for i, r in enumerate(refunds, 1):
-            lines.append(f"{i}. user_id {r['user_id']} · e-mail оплаты {r['email']} · "
-                         f"покупка {_d(r['purchased_at'])} · {_product(r['product'])} · "
-                         f"заявка {_d(r['created_at'])}")
+        urgent = sum(1 for r in refunds if days_left(r["created_at"], end) <= URGENT_DAYS)
+        if urgent:
+            lines.append(f"СРОЧНО (осталось 3 дня или меньше): {urgent}")
+        lines.append("Возврат выполнен в кабинете платёжного сервиса → /refunded <№>; "
+                     "отказ → /reject <№> (добавьте notify, чтобы бот сообщил клиенту решение).")
+        for r in refunds:
+            lines.append(_refund_line(r, end))
 
     deliveries = db.delivery_requests(open_only=True)
     if deliveries:

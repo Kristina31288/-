@@ -1,5 +1,5 @@
 """Фоновая отправка отложенных сообщений (цепочка советов и «Как прошла неделя?»)
-и еженедельной сводки владелице (понедельник 10:00 МСК, summary.py).
+и ежедневной сводки владелице (каждый день 10:00 МСК, summary.py).
 
 Без внешних сервисов: раз в минуту читает очередь scheduled_messages в SQLite.
 Что и когда слать решает followup.check(); здесь — только отправка и ошибки Telegram.
@@ -67,7 +67,7 @@ async def send_due(bot: Bot, db: Storage, cfg: Config, now: datetime | None = No
 
 async def send_summary_if_due(bot: Bot, db: Storage, cfg: Config,
                               now: datetime | None = None) -> bool:
-    """Раз в неделю — одно сообщение владелице. True — если сводка отправлена."""
+    """Раз в день — одно сообщение владелице. True — если сводка отправлена."""
     now = now or utcnow()
     slot = summary.due_slot(db, now)
     if slot is None:
@@ -76,7 +76,7 @@ async def send_summary_if_due(bot: Bot, db: Storage, cfg: Config,
         await bot.send_message(cfg.owner_id, summary.build(db, slot))
     except TelegramAPIError as e:
         # слот не отмечаем — попробуем снова через минуту (владелица нажала /start в боте?)
-        log.warning("Еженедельная сводка не отправлена: %s", e)
+        log.warning("Ежедневная сводка не отправлена: %s", e)
         return False
     summary.mark_sent(db, slot)
     return True
@@ -92,7 +92,7 @@ async def scheduler_loop(bot: Bot, db: Storage, cfg: Config, interval: float = T
             log.exception("Ошибка планировщика отложенных сообщений")
         try:
             if await send_summary_if_due(bot, db, cfg):
-                log.info("Еженедельная сводка отправлена владелице")
+                log.info("Ежедневная сводка отправлена владелице")
         except Exception:
-            log.exception("Ошибка еженедельной сводки")
+            log.exception("Ошибка ежедневной сводки")
         await asyncio.sleep(interval)

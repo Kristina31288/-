@@ -9,10 +9,10 @@
 4. Сервисные сценарии Виктории (support.py): возврат, файл не пришёл, «не подошло»,
    жалоба, мат, просьба о человеке. Владелице ничего не передаётся «вживую».
 5. Ответ ИИ-помощницы (GigaChat) или FAQ. Нет ответа в базе → вопрос (без user_id и
-   контактов) пишется в еженедельную сводку.
+   контактов) пишется в ежедневную сводку.
 
-Режим «не продавать» (no_sales): после кризиса (сутки) и навсегда после заявки на возврат
-(no_sell). Тогда ИИ получает запрет продавать, FAQ отдаёт ответы без цен и оплаты, а ответ,
+Режим «не продавать» (no_sales): после кризиса (сутки) и навсегда после выполненного
+возврата (no_sell ставит владелица командой /refunded; подача заявления его не ставит). Тогда ИИ получает запрет продавать, FAQ отдаёт ответы без цен и оплаты, а ответ,
 похожий на продажу, заменяется нейтральным.
 """
 from __future__ import annotations
@@ -47,6 +47,7 @@ class Decision:
     log_user_text: bool = True      # сохранять ли текст пользователя в журнал
     rows: list = field(default_factory=list)   # инлайн-кнопки (followup.Button): замена, подарок
     resend_files: bool = False      # прислать заново PDF всех покупок
+    files_first: bool = False       # сначала PDF, потом текст с кнопками («Получилось открыть?»)
     unanswered: str = ""            # вопрос без ответа (очищенный) — записан в сводку
 
 
@@ -120,13 +121,14 @@ async def process_text(ctx: DialogContext, user_id: int, text: str) -> Decision:
     service = ctx.support.handle(user_id, text, no_sell=no_sell)
     if service is not None:
         return Decision(Kind.SERVICE, _introduce(ctx, user_id, service.text), rows=service.rows,
-                        resend_files=service.resend_files)
+                        resend_files=service.resend_files, files_first=service.files_first)
 
     history = list(ctx.history[user_id])
     reply = await ctx.assistant.answer(text, history, no_sales=no_sales)
     if reply.refund:                 # ИИ распознал просьбу о возврате, которую не поймали шаблоны
         service = ctx.support.start_refund(user_id, text, no_sell=no_sell)
-        return Decision(Kind.SERVICE, _introduce(ctx, user_id, service.text), rows=service.rows)
+        return Decision(Kind.SERVICE, _introduce(ctx, user_id, service.text), rows=service.rows,
+                        resend_files=service.resend_files, files_first=service.files_first)
 
     answer = reply.text
     if no_sales and looks_like_sales(answer):
