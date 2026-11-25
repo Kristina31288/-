@@ -31,19 +31,19 @@ FONTS = ("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;4
 
 # Обложки: иллюстрация (site/img/<img>.jpg) и пара «вместо этого → скажите так»
 META = {
-    "00-lead-magnet": {"badge": "Бесплатно", "img": "angel-left",
+    "00-lead-magnet": {"badge": "Бесплатно", "img": "art-mama-kiss",
                        "pills": ["<b>10</b> готовых фраз", "примеры диалогов", "для детей 5–16 лет"]},
-    "01-telefon": {"badge": "Разбор 1", "img": "angel-right",
+    "01-telefon": {"badge": "Разбор 1", "img": "art-telefon",
                    "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "семейный договор"],
                    "no": "Сколько можно сидеть в телефоне!",
                    "yes": "Вижу, интересно. Через 10 минут выключаем — поставишь таймер?"},
-    "02-podrostok": {"badge": "Разбор 2", "img": "angel-left",
+    "02-podrostok": {"badge": "Разбор 2", "img": "art-podrostok",
                      "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "как извиниться"],
                      "no": "Как ты со мной разговариваешь?!",
                      "yes": "Стоп. Таким тоном я не разговариваю. Вернёмся позже."},
-    "04-podarok": {"badge": "Подарок", "img": "angel-left",
+    "04-podarok": {"badge": "Подарок", "img": "art-mama-bath",
                    "pills": ["<b>7</b> вечеров", "<b>5</b> фраз", "шпаргалка"]},
-    "03-uroki": {"badge": "Разбор 3", "img": "angel-right", "gray": True,
+    "03-uroki": {"badge": "Разбор 3", "img": "art-uroki",
                  "pills": ["<b>15</b> фраз", "план на <b>7</b> дней", "стоп-приём"],
                  "no": "Сколько можно сидеть над одним примером!",
                  "yes": "Отложим этот пример, сделаем следующий и вернёмся."},
@@ -128,7 +128,7 @@ def build_html(slug: str) -> str:
     body = re.sub(r"<p>(<em>|<strong>)?(Дисклеймер|Материал|Этот материал)((?:(?!<p>).)*?)</p>\s*$",
                   r'<p class="disclaimer">\1\2\3</p>', body, flags=re.S)
     body = enhance(body)
-    meta = META.get(slug, {"badge": "Разбор", "img": "angel-left", "pills": []})
+    meta = META.get(slug, {"badge": "Разбор", "img": "art-mama-kiss", "pills": []})
     img_src = (ROOT / "site" / "img" / f"{meta['img']}.jpg").as_uri()
     pills = "".join(f'<span class="pill">{p}</span>' for p in meta["pills"])
     bubbles = ""
@@ -139,7 +139,8 @@ def build_html(slug: str) -> str:
             if slug not in ("00-lead-magnet", "04-podarok") else '<div class="logo">Бесплатно<span class="when">от автора</span></div>')
     gray = " g" if meta.get("gray") else ""
     import os
-    art = "" if os.environ.get("NO_ART") else f'<div class="archimg{gray}"><img src="{img_src}" alt=""></div>' 
+    img_path = ROOT / "site" / "img" / f"{meta['img']}.jpg"
+    art = "" if (os.environ.get("NO_ART") or not img_path.exists()) else f'<div class="archimg{gray}"><img src="{img_src}" alt=""></div>' 
     cover = f"""
 <section class="cover"><div class="inner">
   <span class="badge">{html.escape(meta['badge'])}</span>

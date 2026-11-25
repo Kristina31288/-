@@ -146,6 +146,14 @@ details p{margin:10px 0 0;color:var(--muted)}
 .help b{color:#fff}
 footer{background:var(--bg-2);color:var(--muted);padding:36px 0 56px;font-size:13px}
 footer a{color:var(--muted)}
+
+/* бесплатно: лид-магнит */
+.gift{padding:72px 0}
+.gift-grid{display:grid;gap:30px;align-items:center}
+@media(min-width:820px){.gift-grid{grid-template-columns:300px 1fr}}
+.gift-cover{width:min(300px,72vw);margin:0 auto;box-shadow:0 24px 50px rgba(40,38,36,.22);border-radius:4px}
+.acard .face .art-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 25%;z-index:1}
+.acard .face .plate{z-index:2}
 </style>
 </head>
 <body>
@@ -184,7 +192,7 @@ footer a{color:var(--muted)}
     <p class="lead">Одна ситуация — один разбор. 10–14 страниц, читается за 20 минут с телефона.</p>
     <div class="cards">
       <article class="acard">
-        <div class="face"><span class="num">1</span><div class="art">[Богданов-Бельский, «Любители книг»]</div><span class="plate">Раньше — книги, теперь — экраны</span></div>
+        <div class="face"><img class="art-img" src="img/art-telefon.jpg" alt="Картина к разбору про телефон" loading="lazy" onerror="this.remove()"><span class="num">1</span><div class="art">[Богданов-Бельский, «Любители книг»]</div><span class="plate">Раньше — книги, теперь — экраны</span></div>
         <div class="body">
           <span class="script">телефон и игры</span>
           <h3>…ребёнок не отлипает от телефона</h3>
@@ -194,7 +202,7 @@ footer a{color:var(--muted)}
         </div>
       </article>
       <article class="acard">
-        <div class="face"><span class="num">2</span><div class="art">[Маковский, «Дети, бегущие от грозы»]</div><span class="plate">Гроза переходного возраста</span></div>
+        <div class="face"><img class="art-img" src="img/art-podrostok.jpg" alt="К. Маковский, «Дети, бегущие от грозы», 1872" loading="lazy" onerror="this.remove()"><span class="num">2</span><div class="art">[Маковский, «Дети, бегущие от грозы»]</div><span class="plate">Гроза переходного возраста</span></div>
         <div class="body">
           <span class="script">грубость и молчание</span>
           <h3>…подросток хамит или закрылся</h3>
@@ -204,7 +212,7 @@ footer a{color:var(--muted)}
         </div>
       </article>
       <article class="acard">
-        <div class="face"><span class="num">3</span><div class="art">[Богданов-Бельский, «Устный счёт»]</div><span class="plate">Задачка, которую решают всем классом</span></div>
+        <div class="face"><img class="art-img" src="img/art-uroki.jpg" alt="Н. Богданов-Бельский, «Устный счёт», 1895" loading="lazy" onerror="this.remove()"><span class="num">3</span><div class="art">[Богданов-Бельский, «Устный счёт»]</div><span class="plate">Задачка, которую решают всем классом</span></div>
         <div class="body">
           <span class="script">уроки и учёба</span>
           <h3>…не хочет учиться, а уроки — это крик</h3>
@@ -255,6 +263,20 @@ footer a{color:var(--muted)}
   </div>
 </section>
 
+
+<section class="gift">
+  <div class="wrap gift-grid">
+    <img class="gift-cover" src="img/00-lead-magnet.png" alt="Обложка «10 фраз, которые останавливают ссору с ребёнком»" loading="lazy">
+    <div>
+      <div class="kick">бесплатно</div>
+      <h2 class="h2" style="margin-top:6px">10 фраз, которые останавливают ссору</h2>
+      <p>Короткая шпаргалка: что сказать в момент, когда вот-вот начнётся крик. С примерами диалогов для детей 5–16 лет.</p>
+      <a class="ribbon" href="[ССЫЛКА_БОТ]">Получить в Telegram</a>
+      <p class="note" style="font-size:13px;color:var(--muted);margin-top:12px">Пришлёт Виктория, ИИ-помощница проекта.</p>
+    </div>
+  </div>
+</section>
+
 <section class="author">
   <div class="wrap grid">
     <div class="arch"><img src="img/author.jpg" alt="Автор проекта"></div>
@@ -293,6 +315,7 @@ footer a{color:var(--muted)}
     <p>Плетнева Кристина [Отчество], самозанятая, ИНН [ИНН] · [e-mail для официальных обращений]</p>
     <p><a href="[ССЫЛКА_ОФЕРТА]">Оферта</a> · <a href="[ССЫЛКА_ПОЛИТИКА]">Политика обработки персональных данных</a></p>
     <p>Материалы носят информационно-просветительский характер, не являются медицинской или психологической помощью и не заменяют консультацию специалиста.</p>
+  <p style="font-size:12px;opacity:.75">Иллюстрации — общественное достояние: Мэри Кэссетт (Art Institute of Chicago, CC0), К. Маковский, Н. Богданов-Бельский (Wikimedia Commons).</p>
   </div>
 </footer>
 </body>
