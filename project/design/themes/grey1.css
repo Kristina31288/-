@@ -1,0 +1,13 @@
+/* Серый 1 — светлый */
+:root{--sage:#4A4846;--sage-l:#EEEDEB;--clay:#8E1D22;--clay-l:#F3EFEC;--coal:#DEDCD9;--cream:#232222}
+.cover{background:#DEDCD9;color:#232222}
+.cover .badge,.cover .subtitle{color:#6B6764}
+.cover .title{color:#1E1C1B}
+.cover .when{color:#8E1D22}
+.cover .bubble{background:#ECEAE7;border-color:#cfcbc6;color:#6B6764}
+.cover .bubble.yes{background:#4A4846;border-color:#4A4846;color:#fff}
+.cover .pill{border-color:#bdb8b3;color:#232222}.cover .pill b{color:#8E1D22}
+.cover .archimg{border-color:#fff}
+th{background:#4A4846}
+.cover .archimg{width:98mm;height:118mm;box-shadow:0 0 0 .5mm #BDB8B2}
+.cover .title{margin-top:8mm}

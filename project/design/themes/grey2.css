@@ -1,0 +1,10 @@
+/* Серый 2 — средний */
+:root{--sage:#5E5B58;--sage-l:#EEEDEB;--clay:#8E1D22;--clay-l:#F3EFEC;--coal:#8A8783;--cream:#F5EFE6}
+.cover{background:#8A8783;color:#fff}
+.cover .badge,.cover .subtitle{color:#ECE9E5}
+.cover .title{color:#fff}
+.cover .when{color:#6E1419}
+.cover .bubble{background:#9C9995;border-color:#a8a5a1;color:#F1EEEA}
+.cover .bubble.yes{background:#8E1D22;border-color:#8E1D22;color:#fff}
+.cover .pill{border-color:#b3b0ac;color:#fff}.cover .pill b{color:#fff}
+th{background:#5E5B58}
