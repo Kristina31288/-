@@ -155,15 +155,13 @@ footer a{color:var(--muted)}
 .acard .face .art-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 25%;z-index:1}
 .acard .face .plate{z-index:2}
 
-/* накладка для замочной скважины: бронза XVIII века, Cleveland Museum of Art (CC0), тонирована */
-.trap-grid>*{min-width:0}
-.kh-wrap{position:relative;width:min(420px,100%);max-width:100%;aspect-ratio:1200/832;margin:0 auto;filter:drop-shadow(3px 6px 8px rgba(0,0,0,.55))}
-.kh-wrap .escut{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.kh-wrap .keyhole,.kh-wrap .kh-rim{position:absolute;left:49.4%;transform:translateX(-50%);margin:0;clip-path:url(#kh);-webkit-clip-path:url(#kh)}
-.kh-wrap .keyhole{top:17%;height:52%;aspect-ratio:150/230;width:auto;background:#111}
+/* замочная скважина с картиной */
+.kh-wrap{position:relative;width:150px;height:230px;margin:0 auto}
+.kh-wrap .keyhole,.kh-wrap .kh-rim{position:absolute;left:50%;transform:translateX(-50%);margin:0;clip-path:url(#kh);-webkit-clip-path:url(#kh)}
+.kh-wrap .keyhole{top:0;width:150px;height:230px;background:#111}
 .kh-wrap .keyhole img{width:100%;height:100%;object-fit:cover;object-position:50% 22%}
-.kh-wrap .kh-rim{top:15.6%;height:54.8%;aspect-ratio:150/230;width:auto;background:linear-gradient(150deg,#bdb6b0 0%,#6d6763 40%,#2b2827 75%,#9d9590 100%)}
-@media(min-width:820px){.trap-grid{grid-template-columns:1fr 420px 1fr}}
+.kh-wrap .kh-rim{top:-6px;width:162px;height:242px;background:linear-gradient(150deg,#cfc8c2 0%,#7d7672 40%,#2f2c2b 75%,#aaa29d 100%)}
+@media(min-width:820px){.trap-grid{grid-template-columns:1fr 200px 1fr}}
 </style>
 </head>
 <body>
@@ -246,8 +244,8 @@ footer a{color:var(--muted)}
       <i class="rivet a"></i><i class="rivet b"></i><i class="rivet c"></i><i class="rivet d"></i>
       <h2 class="h2"><span class="cap">З</span>амкнутый круг</h2>
       <div class="trap-grid">
-        <div class="trap-item"><span class="script">Крик</span><p>Просишь раз, второй, пятый. На десятый срываешься — и ребёнок слышит только тон, а не слова.</p></div>
-        <div class="kh-wrap" aria-hidden="true"><img class="escut" src="img/escutcheon.png" alt=""><div class="kh-rim"></div><div class="keyhole"><img src="img/art-keyhole.jpg" alt=""></div></div>
+        <div class="trap-item"><span class="script">Тревога</span><p>Постоянно думаешь: а вдруг с ним что-то не так? Сравниваешь с другими детьми, читаешь советы — и тревоги только больше.</p><span class="script" style="margin-top:18px">Крик</span><p>Просишь раз, второй, пятый. На десятый срываешься — и ребёнок слышит только тон, а не слова.</p></div>
+        <div class="kh-wrap" aria-hidden="true"><div class="kh-rim"></div><div class="keyhole"><img src="img/art-keyhole.jpg" alt=""></div></div>
         <div class="trap-item"><span class="script">Вина</span><p>Потом стыдно. Обещаешь себе, что завтра будет по-другому, — но не знаешь, что сказать вместо.</p>
           <span class="script" style="margin-top:18px">Тишина</span><p>Ребёнок закрывается, отвечает «нормально» и уходит в телефон. Круг замыкается.</p></div>
       </div>
@@ -325,7 +323,7 @@ footer a{color:var(--muted)}
     <p>Плетнева Кристина [Отчество], самозанятая, ИНН [ИНН] · [e-mail для официальных обращений]</p>
     <p><a href="[ССЫЛКА_ОФЕРТА]">Оферта</a> · <a href="[ССЫЛКА_ПОЛИТИКА]">Политика обработки персональных данных</a></p>
     <p>Материалы носят информационно-просветительский характер, не являются медицинской или психологической помощью и не заменяют консультацию специалиста.</p>
-  <p style="font-size:12px;opacity:.75">Иллюстрации — общественное достояние: Мэри Кэссетт, Эдвард Мунк (Art Institute of Chicago, CC0); накладка для замочной скважины, бронза, XVIII в. (Cleveland Museum of Art, CC0); Н. Богданов-Бельский (Wikimedia Commons).</p>
+  <p style="font-size:12px;opacity:.75">Иллюстрации — общественное достояние: Мэри Кэссетт, Эдвард Мунк (Art Institute of Chicago, CC0); Н. Богданов-Бельский (Wikimedia Commons).</p>
   </div>
 </footer>
 </body>
